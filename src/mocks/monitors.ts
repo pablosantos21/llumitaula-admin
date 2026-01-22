@@ -1,8 +1,7 @@
 export interface Monitor {
     id: string;
     name: string;
-    email: string;
-    assignedClass: string;
+    code: string;
     isActive: boolean;
 }
 
@@ -10,22 +9,19 @@ export const MOCK_MONITORS: Monitor[] = [
     {
         id: '1',
         name: 'Ana García',
-        email: 'ana.garcia@colegio.com',
-        assignedClass: '1º Primaria A',
+        code: '1234',
         isActive: true,
     },
     {
         id: '2',
         name: 'Carlos Ruiz',
-        email: 'carlos.ruiz@colegio.com',
-        assignedClass: '2º Primaria B',
+        code: '5678',
         isActive: true,
     },
     {
         id: '3',
         name: 'Elena Martínez',
-        email: 'elena.mtz@colegio.com',
-        assignedClass: '3º Primaria A',
+        code: '9012',
         isActive: false,
     },
 ];

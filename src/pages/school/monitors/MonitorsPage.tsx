@@ -4,7 +4,7 @@ import type { Monitor } from '../../../mocks/monitors'
 import { DataTable } from '../../../components/ui/data-table'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
-import { Plus, Edit2, UserMinus, UserCheck, Mail } from 'lucide-react'
+import { Plus, Edit2, UserMinus, UserCheck, Key } from 'lucide-react'
 
 export default function MonitorsPage() {
     const [monitors] = useState<Monitor[]>(MOCK_MONITORS)
@@ -14,22 +14,21 @@ export default function MonitorsPage() {
             header: 'Monitor',
             accessor: (monitor: Monitor) => (
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold border border-gray-200">
+                    <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
                         {monitor.name.charAt(0)}
                     </div>
-                    <div className="flex flex-col">
-                        <span className="font-semibold text-gray-900">{monitor.name}</span>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <Mail className="h-3 w-3" />
-                            {monitor.email}
-                        </div>
-                    </div>
+                    <span className="font-semibold text-gray-900">{monitor.name}</span>
                 </div>
             )
         },
         {
-            header: 'Clase Asignada',
-            accessor: (monitor: Monitor) => monitor.assignedClass
+            header: 'Código de Acceso',
+            accessor: (monitor: Monitor) => (
+                <div className="flex items-center gap-2 font-mono text-sm text-gray-600">
+                    <Key className="h-3.5 w-3.5 text-amber-500" />
+                    <span>{monitor.code}</span>
+                </div>
+            )
         },
         {
             header: 'Estado',
@@ -66,7 +65,7 @@ export default function MonitorsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Personal: Monitores</h1>
-                    <p className="text-sm text-gray-500">Gestiona el equipo de monitores asignados a las clases.</p>
+                    <p className="text-sm text-gray-500">Gestión de monitores y sus códigos de acceso al comedor.</p>
                 </div>
                 <Button className="flex items-center gap-2">
                     <Plus className="h-4 w-4" />

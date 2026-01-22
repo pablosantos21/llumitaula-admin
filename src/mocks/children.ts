@@ -3,8 +3,21 @@ export interface Child {
     name: string;
     class: string;
     course: 'Infantil' | 'Primaria' | 'ESO';
+    health: string[];
     observations: string;
 }
+
+export const MOCK_HEALTH_TAGS = [
+    'Alérgia Frutos Secos',
+    'Sin Gluten',
+    'Sin Lactosa',
+    'Vegetariano',
+    'Vegano',
+    'Sin Huevo',
+    'Diabetes',
+    'Sin Marisco',
+    'Asmático'
+];
 
 export const MOCK_CHILDREN: Child[] = [
     {
@@ -12,20 +25,23 @@ export const MOCK_CHILDREN: Child[] = [
         name: 'Paula Sanchis',
         class: '1º Primaria A',
         course: 'Primaria',
-        observations: 'Alérgica a los frutos secos'
+        health: ['Alérgia Frutos Secos'],
+        observations: 'Trae su propia merienda'
     },
     {
         id: '2',
         name: 'Marc Ferrés',
         class: 'P4 Infantil B',
         course: 'Infantil',
-        observations: 'Sin gluten'
+        health: ['Sin Gluten'],
+        observations: 'Sensibilidad leve'
     },
     {
         id: '3',
         name: 'Lucía Gómez',
         class: '1º ESO A',
         course: 'ESO',
+        health: [],
         observations: 'Dieta normal'
     },
     {
@@ -33,13 +49,15 @@ export const MOCK_CHILDREN: Child[] = [
         name: 'Joan Baptista',
         class: '1º Primaria A',
         course: 'Primaria',
-        observations: 'Vegetariano'
+        health: ['Vegetariano'],
+        observations: ''
     },
     {
         id: '5',
         name: 'Sofia Ortiz',
         class: 'P5 Infantil A',
         course: 'Infantil',
-        observations: 'Intolerancia a la lactosa'
+        health: ['Sin Lactosa', 'Sin Huevo'],
+        observations: 'Reacción severa'
     }
 ];
