@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase';
+
 export interface User {
     id: string;
     name: string;
@@ -5,48 +7,63 @@ export interface User {
     role: 'admin' | 'monitor';
 }
 
-export const MOCK_USER: User = {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@llumitaula.com',
-    role: 'admin',
-};
-
 export const AuthService = {
     login: async (email: string, password: string): Promise<User> => {
-        // Simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        if (email === 'admin@llumitaula.com' && password === 'admin') {
-            return MOCK_USER;
-        }
-
-        // Allow any login for demo purposes if specific credentials generally,
-        // but the prompt asked for "Validación básica".
-        // Let's enforce non-empty.
-        if (!email || !password) {
-            throw new Error('Email and password are required');
-        }
-
-        // For demo convenience, let any email/password work if not specific? 
-        // The prompt says "Validación básica".
-        // I will mock success for any valid-looking email for testing ease, or strict check.
-        // "Autenticación simulada (login fake con estado en memoria)"
-        // Let's stick to strict mock.
-
-        if (password.length < 4) {
-            throw new Error('Invalid credentials');
-        }
-
-        return {
-            id: '2',
-            name: email.split('@')[0],
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
-            role: 'admin'
+            password,
+        });
+
+        if (error) {
+            throw new Error(error.message);
         }
+
+        if (!data.user) {
+            throw new Error('Login failed: No user returned');
+        }
+
+        // Map Supabase user to our User interface
+        // We assume the role is stored in user metadata or we default to admin for now
+        return {
+            id: data.user.id,
+            name: data.user.email?.split('@')[0] || 'User',
+            email: data.user.email || '',
+            role: (data.user.user_metadata?.role as 'admin' | 'monitor') || 'admin',
+        };
     },
 
     logout: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            throw new Error(error.message);
+        }
+    },
+
+    getCurrentUser: async (): Promise<User | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) return null;
+
+        return {
+            id: user.id,
+            name: user.email?.split('@')[0] || 'User',
+            email: user.email || '',
+            role: (user.user_metadata?.role as 'admin' | 'monitor') || 'admin',
+        };
+    },
+
+    onAuthStateChange: (callback: (user: User | null) => void) => {
+        return supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                callback({
+                    id: session.user.id,
+                    name: session.user.email?.split('@')[0] || 'User',
+                    email: session.user.email || '',
+                    role: (session.user.user_metadata?.role as 'admin' | 'monitor') || 'admin',
+                });
+            } else {
+                callback(null);
+            }
+        });
     }
 };

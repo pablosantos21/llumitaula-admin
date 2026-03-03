@@ -22,7 +22,7 @@ export default function LoginPage() {
             await login(email, password)
             navigate('/select-school')
         } catch (err) {
-            setError('Credenciales incorrectas. Prueba con admin@llumitaula.com / admin')
+            setError('Credenciales incorrectas')
         }
     }
 

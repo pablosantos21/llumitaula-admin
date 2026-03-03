@@ -1,30 +1,100 @@
-import { useState } from 'react'
-import { MOCK_CHILDREN } from '../../../mocks/children'
-import type { Child } from '../../../mocks/children'
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { ChildService, type Child } from '../../../services/children.service'
+import { ClassService, type Class } from '../../../services/classes.service'
 import { DataTable } from '../../../components/ui/data-table'
-import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
-import { Plus, Search, Filter, Eye, Edit2, Tag } from 'lucide-react'
-import { HealthTagsModal } from './components/HealthTagsModal'
+import { Plus, Search, Eye, Edit2, Loader2, Trash2 } from 'lucide-react'
 import { EditChildModal } from './components/EditChildModal'
+import { AddChildModal } from './components/AddChildModal'
+import { DeleteChildModal } from './components/DeleteChildModal'
 
 export default function ChildrenPage() {
-    const [children, setChildren] = useState<Child[]>(MOCK_CHILDREN)
+    const { schoolId } = useParams<{ schoolId: string }>()
+    const [children, setChildren] = useState<Child[]>([])
     const [searchTerm, setSearchTerm] = useState('')
-    const [courseFilter, setCourseFilter] = useState('All')
-    const [isTagsModalOpen, setIsTagsModalOpen] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [editingChild, setEditingChild] = useState<Child | null>(null)
+    const [deletingChild, setDeletingChild] = useState<Child | null>(null)
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+    const [classes, setClasses] = useState<Class[]>([])
+    const [isSaving, setIsSaving] = useState(false)
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!schoolId) return
+            try {
+                setIsLoading(true)
+                const [childrenData, classesData] = await Promise.all([
+                    ChildService.getChildrenBySchool(schoolId),
+                    ClassService.getClassesBySchool(schoolId)
+                ])
+                setChildren(childrenData)
+                setClasses(classesData)
+            } catch (err) {
+                console.error('Error fetching data:', err)
+                setError('No se pudieron cargar los datos')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+        fetchData()
+    }, [schoolId])
 
     const filteredChildren = children.filter(child => {
-        const matchesSearch = child.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            child.class.toLowerCase().includes(searchTerm.toLowerCase())
-        const matchesCourse = courseFilter === 'All' || child.course === courseFilter
-        return matchesSearch && matchesCourse
+        const fullName = `${child.first_name} ${child.last_name}`.toLowerCase()
+        const className = child.classes?.name.toLowerCase() || ''
+        const search = searchTerm.toLowerCase()
+        return fullName.includes(search) || className.includes(search)
     })
 
-    const handleSaveChild = (updatedChild: Child) => {
-        setChildren(prev => prev.map(c => c.id === updatedChild.id ? updatedChild : c))
+    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string }) => {
+        try {
+            setIsSaving(true)
+            await ChildService.createChild(newChildData)
+            // Refresh list
+            if (schoolId) {
+                const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
+                setChildren(updatedChildren)
+            }
+        } catch (err) {
+            console.error('Error creating child:', err)
+            // You might want to show a toast here
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleUpdateChild = async (updatedChild: Child) => {
+        try {
+            setIsSaving(true)
+            const { id, classes, created_at, ...updates } = updatedChild
+            await ChildService.updateChild(id, updates)
+            // Refresh list or update local state
+            if (schoolId) {
+                const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
+                setChildren(updatedChildren)
+            }
+        } catch (err) {
+            console.error('Error updating child:', err)
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleDeleteChild = async (id: string) => {
+        try {
+            setIsSaving(true)
+            await ChildService.deleteChild(id)
+            setChildren(prev => prev.filter(c => c.id !== id))
+            setDeletingChild(null)
+        } catch (err) {
+            console.error('Error deleting child:', err)
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const columns = [
@@ -33,35 +103,24 @@ export default function ChildrenPage() {
             accessor: (child: Child) => (
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-700 font-bold text-xs">
-                        {child.name.split(' ').map(n => n[0]).join('')}
+                        {child.first_name[0]}{child.last_name[0]}
                     </div>
-                    <span className="font-semibold text-gray-900">{child.name}</span>
+                    <span className="font-semibold text-gray-900">{child.first_name} {child.last_name}</span>
                 </div>
             )
         },
         {
             header: 'Clase',
             accessor: (child: Child) => (
-                <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-700">{child.class}</span>
-                    <span className="text-xs text-gray-400">{child.course}</span>
-                </div>
+                <span className="text-sm font-medium text-gray-700">{child.classes?.name || 'Sin asignar'}</span>
             )
         },
         {
-            header: 'Salud',
+            header: 'Fecha de Alta',
             accessor: (child: Child) => (
-                <div className="flex flex-wrap gap-1 max-w-md">
-                    {child.health && child.health.length > 0 ? (
-                        child.health.map((tag) => (
-                            <Badge key={tag} variant="warning" className="text-[10px] px-2 py-0">
-                                {tag}
-                            </Badge>
-                        ))
-                    ) : (
-                        <span className="text-xs text-gray-400 italic">Sin restricciones</span>
-                    )}
-                </div>
+                <span className="text-xs text-gray-500">
+                    {new Date(child.created_at).toLocaleDateString()}
+                </span>
             )
         },
         {
@@ -80,10 +139,35 @@ export default function ChildrenPage() {
                     >
                         <Edit2 className="h-4 w-4" />
                     </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-red-600"
+                        onClick={() => setDeletingChild(child)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             )
         }
     ]
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" />
+                <p className="text-gray-500">Cargando alumnos...</p>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-center">
+                {error}
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -93,11 +177,10 @@ export default function ChildrenPage() {
                     <p className="text-sm text-gray-500">Consulta y gestiona la información de los alumnos comensales.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="secondary" className="flex items-center gap-2" onClick={() => setIsTagsModalOpen(true)}>
-                        <Tag className="h-4 w-4" />
-                        Gestionar Etiquetas
-                    </Button>
-                    <Button className="flex items-center gap-2">
+                    <Button
+                        className="flex items-center gap-2"
+                        onClick={() => setIsAddModalOpen(true)}
+                    >
                         <Plus className="h-4 w-4" />
                         Inscribir Niño
                     </Button>
@@ -114,38 +197,40 @@ export default function ChildrenPage() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
-                    <select
-                        className="flex h-10 w-[180px] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 shadow-sm"
-                        value={courseFilter}
-                        onChange={(e) => setCourseFilter(e.target.value)}
-                    >
-                        <option value="All">Todos los cursos</option>
-                        <option value="Infantil">Infantil</option>
-                        <option value="Primaria">Primaria</option>
-                        <option value="ESO">ESO</option>
-                    </select>
-                    <Button variant="secondary" className="gap-2">
-                        <Filter className="h-4 w-4" />
-                        Filtros
-                    </Button>
-                </div>
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                 <DataTable columns={columns} data={filteredChildren} />
+                {filteredChildren.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                        No se encontraron alumnos.
+                    </div>
+                )}
             </div>
-
-            <HealthTagsModal
-                isOpen={isTagsModalOpen}
-                onClose={() => setIsTagsModalOpen(false)}
-            />
 
             <EditChildModal
                 isOpen={!!editingChild}
                 onClose={() => setEditingChild(null)}
                 child={editingChild}
-                onSave={handleSaveChild}
+                classes={classes}
+                isLoading={isSaving}
+                onSave={handleUpdateChild}
+            />
+
+            <AddChildModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                classes={classes}
+                isLoading={isSaving}
+                onSave={handleCreateChild}
+            />
+
+            <DeleteChildModal
+                isOpen={!!deletingChild}
+                onClose={() => setDeletingChild(null)}
+                child={deletingChild}
+                isLoading={isSaving}
+                onConfirm={handleDeleteChild}
             />
         </div>
     )

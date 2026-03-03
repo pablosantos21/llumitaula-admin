@@ -7,10 +7,21 @@ interface CalendarProps {
     onDateClick?: (date: Date) => void
     highlightedDates?: Set<string> // Format: YYYY-MM-DD
     renderDay?: (date: Date) => React.ReactNode
+    currentMonth?: Date
+    onMonthChange?: (date: Date) => void
 }
 
-export function Calendar({ onDateClick, highlightedDates, renderDay }: CalendarProps) {
-    const [currentDate, setCurrentDate] = useState(new Date())
+export function Calendar({ onDateClick, highlightedDates, renderDay, currentMonth: controlledMonth, onMonthChange }: CalendarProps) {
+    const [internalMonth, setInternalMonth] = useState(new Date())
+    const currentDate = controlledMonth || internalMonth
+
+    const setCurrentDate = (date: Date) => {
+        if (onMonthChange) {
+            onMonthChange(date)
+        } else {
+            setInternalMonth(date)
+        }
+    }
 
     const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate()
     const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay()
@@ -23,13 +34,13 @@ export function Calendar({ onDateClick, highlightedDates, renderDay }: CalendarP
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ]
 
-    const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+    const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
     const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
     const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
 
     const totalDays = daysInMonth(year, month)
-    const firstDay = firstDayOfMonth(year, month)
+    const firstDay = (firstDayOfMonth(year, month) + 6) % 7 // Adjust Sunday (0) to 6 and Monday (1) to 0
 
     const days = []
     for (let i = 0; i < firstDay; i++) {

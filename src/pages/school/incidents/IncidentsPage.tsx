@@ -1,63 +1,57 @@
-import { useState } from 'react'
-import { MOCK_INCIDENTS } from '../../../mocks/incidents'
-import type { Incident } from '../../../mocks/incidents'
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { IncidentService, type Incident } from '../../../services/incidents.service'
 import { DataTable } from '../../../components/ui/data-table'
-import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
-import { Calendar, Filter, MessageSquare, AlertCircle } from 'lucide-react'
+import { Calendar, MessageSquare, Loader2 } from 'lucide-react'
 
 export default function IncidentsPage() {
-    const [incidents] = useState<Incident[]>(MOCK_INCIDENTS)
+    const { schoolId } = useParams<{ schoolId: string }>()
+    const [incidents, setIncidents] = useState<Incident[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
-    const getSeverityVariant = (severity: Incident['severity']) => {
-        switch (severity) {
-            case 'alta': return 'error'
-            case 'media': return 'warning'
-            case 'baja': return 'info'
-            default: return 'default'
+    useEffect(() => {
+        const fetchIncidents = async () => {
+            if (!schoolId) return
+            try {
+                setIsLoading(true)
+                const data = await IncidentService.getIncidentsBySchool(schoolId)
+                setIncidents(data)
+            } catch (err) {
+                console.error('Error fetching incidents:', err)
+                setError('No se pudieron cargar las incidencias')
+            } finally {
+                setIsLoading(false)
+            }
         }
-    }
-
-    const getTypeLabel = (type: Incident['type']) => {
-        return type.charAt(0).toUpperCase() + type.slice(1)
-    }
+        fetchIncidents()
+    }, [schoolId])
 
     const columns = [
         {
             header: 'Niño/a',
             accessor: (incident: Incident) => (
-                <span className="font-semibold text-gray-900">{incident.childName}</span>
+                <span className="font-semibold text-gray-900">
+                    {incident.children ? `${incident.children.first_name} ${incident.children.last_name}` : 'Desconocido'}
+                </span>
             )
         },
         {
             header: 'Fecha',
             accessor: (incident: Incident) => (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                    <span>{incident.date}</span>
+                    <span>{new Date(incident.created_at).toLocaleDateString()}</span>
                 </div>
             )
         },
         {
-            header: 'Tipo',
+            header: 'Descripción',
             accessor: (incident: Incident) => (
-                <span className="text-gray-600 font-medium">{getTypeLabel(incident.type)}</span>
-            )
-        },
-        {
-            header: 'Gravedad',
-            accessor: (incident: Incident) => (
-                <Badge variant={getSeverityVariant(incident.severity)}>
-                    {incident.severity}
-                </Badge>
-            )
-        },
-        {
-            header: 'Comentario',
-            accessor: (incident: Incident) => (
-                <div className="flex items-center gap-2 text-gray-500 max-w-xs truncate">
+                <div className="flex items-center gap-2 text-gray-500 max-w-md">
                     <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="truncate">{incident.comment}</span>
+                    <span className="truncate" title={incident.description}>{incident.description}</span>
                 </div>
             )
         },
@@ -74,46 +68,39 @@ export default function IncidentsPage() {
         }
     ]
 
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" />
+                <p className="text-gray-500">Cargando incidencias...</p>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-center">
+                {error}
+            </div>
+        )
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Registro de Incidencias</h1>
-                    <p className="text-sm text-gray-500">Histórico de alertas dietéticas y de comportamiento.</p>
+                    <p className="text-sm text-gray-500">Histórico de avisos registrados por los monitores.</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-red-50 rounded-lg">
-                        <AlertCircle className="h-6 w-6 text-red-600" />
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500 font-medium">Alertas Críticas</p>
-                        <p className="text-2xl font-bold text-gray-900">1</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-indigo-50 rounded-lg">
-                        <Calendar className="h-6 w-6 text-indigo-600" />
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500 font-medium">Esta semana</p>
-                        <p className="text-2xl font-bold text-gray-900">3</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-gray-50 rounded-lg text-gray-600">
-                        <Filter className="h-6 w-6" />
-                    </div>
-                    <div className="flex-1">
-                        <Button variant="outline" size="sm" className="w-full">Filtrar Histórico</Button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                 <DataTable columns={columns} data={incidents} />
+                {incidents.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                        No hay incidencias registradas para este colegio.
+                    </div>
+                )}
             </div>
         </div>
     )

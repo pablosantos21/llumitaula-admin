@@ -10,11 +10,12 @@ import {
     ChevronLeft,
     Menu as MenuIcon,
     X,
-    School as SchoolIcon
+    School as SchoolIcon,
+    Loader2
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '../lib/utils';
-import { MOCK_SCHOOLS } from '../mocks/schools';
+import { SchoolService, type School } from '../services/schools.service';
 
 export default function DashboardLayout() {
     const { schoolId } = useParams<{ schoolId: string }>();
@@ -22,11 +23,27 @@ export default function DashboardLayout() {
     const location = useLocation();
     const navigate = useNavigate();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [school, setSchool] = useState<School | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const school = MOCK_SCHOOLS.find(s => s.id === schoolId);
+    useEffect(() => {
+        const fetchSchool = async () => {
+            if (!schoolId) return;
+            try {
+                setIsLoading(true);
+                const data = await SchoolService.getSchoolById(schoolId);
+                setSchool(data);
+            } catch (err) {
+                console.error('Error fetching school:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchSchool();
+    }, [schoolId]);
 
     const navigation = [
-        { name: 'Menús', href: `/school/${schoolId}/menus`, icon: Utensils },
         { name: 'Monitores', href: `/school/${schoolId}/monitors`, icon: Users },
         { name: 'Niños', href: `/school/${schoolId}/children`, icon: Baby },
         { name: 'Incidencias', href: `/school/${schoolId}/incidences`, icon: AlertTriangle },
@@ -45,7 +62,14 @@ export default function DashboardLayout() {
                     <div className="bg-indigo-600 p-1.5 rounded-lg">
                         <SchoolIcon className="h-5 w-5 text-white" />
                     </div>
-                    <span className="font-bold text-gray-900 truncate">{school?.name || 'Colegio'}</span>
+                    {isLoading ? (
+                        <div className="flex items-center gap-2 text-gray-400">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-xs">Cargando...</span>
+                        </div>
+                    ) : (
+                        <span className="font-bold text-gray-900 truncate">{school?.name || 'Colegio'}</span>
+                    )}
                 </div>
 
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -54,7 +78,7 @@ export default function DashboardLayout() {
                         className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors mb-6"
                     >
                         <ChevronLeft className="h-4 w-4" />
-                        Cambiar colegio
+                        Volver al panel
                     </Link>
 
                     {navigation.map((item) => {
@@ -149,7 +173,13 @@ export default function DashboardLayout() {
                     <button onClick={() => setIsMobileMenuOpen(true)}>
                         <MenuIcon className="h-6 w-6 text-gray-500" />
                     </button>
-                    <span className="font-bold text-gray-900">{school?.name}</span>
+                    <span className="font-bold text-gray-900">
+                        {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                        ) : (
+                            school?.name || 'Colegio'
+                        )}
+                    </span>
                     <div className="w-6" /> {/* Placeholder for symmetry */}
                 </header>
 

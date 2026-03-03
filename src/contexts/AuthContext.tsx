@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '../services/auth.service';
 import { AuthService } from '../services/auth.service';
@@ -15,7 +15,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        // Check for existing session on mount
+        const checkUser = async () => {
+            try {
+                const currentUser = await AuthService.getCurrentUser();
+                console.log(currentUser);
+                setUser(currentUser);
+            } catch (error) {
+                console.error('Error fetching current user:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        checkUser();
+
+        // Listen for auth state changes
+        const { data: { subscription } } = AuthService.onAuthStateChange((user) => {
+            setUser(user);
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, []);
 
     const login = async (email: string, password: string) => {
         setIsLoading(true);
