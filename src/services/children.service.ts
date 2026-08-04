@@ -12,6 +12,24 @@ export interface Child {
     }
 }
 
+export interface ChildWithSchool {
+    id: string;
+    first_name: string;
+    last_name: string;
+    class_id: string;
+    created_at: string;
+    special_menu: boolean;
+    classes: {
+        id: string;
+        name: string;
+        school_id: string;
+        schools: {
+            id: string;
+            name: string;
+        } | null;
+    } | null;
+}
+
 export const ChildService = {
     getChildrenBySchool: async (schoolId: string): Promise<Child[]> => {
         const { data, error } = await supabase
@@ -80,5 +98,36 @@ export const ChildService = {
             console.error('Error deleting child:', error);
             throw new Error(error.message);
         }
-    }
+    },
+
+    getChildrenWithSpecialMenu: async (): Promise<ChildWithSchool[]> => {
+        const { data, error } = await supabase
+            .from('children')
+            .select(`
+                id,
+                first_name,
+                last_name,
+                class_id,
+                created_at,
+                special_menu,
+                classes!inner(
+                    id,
+                    name,
+                    school_id,
+                    schools(
+                        id,
+                        name
+                    )
+                )
+            `)
+            .eq('special_menu', true)
+            .order('first_name');
+
+        if (error) {
+            console.error('Error fetching children with special menu:', error);
+            throw new Error(error.message);
+        }
+
+        return (data as unknown as ChildWithSchool[]) || [];
+    },
 };
