@@ -167,5 +167,49 @@ export const MenuService = {
             console.error('Error inserting assignments:', insertError);
             throw new Error(insertError.message);
         }
+    },
+
+    getMenuWithSchools: async (menuId: string): Promise<{
+        menu: any;
+        schools: { id: string; name: string }[];
+        date: string;
+    }> => {
+        const { data, error } = await supabase
+            .from('menus')
+            .select(`
+                *,
+                menus_schools (
+                    school_id,
+                    date,
+                    schools (
+                        id,
+                        name
+                    )
+                )
+            `)
+            .eq('id', menuId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching menu:', error);
+            throw new Error(error.message);
+        }
+
+        const { menus_schools, ...menuData } = data;
+        const schools = menus_schools.map((ms: any) => ms.schools);
+        const date = menus_schools[0]?.date || '';
+
+        return {
+            menu: {
+                ...menuData,
+                first_course: menuData.first_course || menuData.primero,
+                second_course: menuData.second_course || menuData.segundo,
+                side: menuData.side || menuData.guarnicion,
+                salad: menuData.salad || menuData.ensalada,
+                dessert: menuData.dessert || menuData.postre,
+            },
+            schools,
+            date
+        };
     }
 };
