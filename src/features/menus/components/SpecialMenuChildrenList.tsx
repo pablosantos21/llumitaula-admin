@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Search, RefreshCw } from 'lucide-react';
 import { ChildService, type ChildWithSchool } from '@/services/children.service';
 import { Input } from '@/components/ui/input';
@@ -13,17 +13,21 @@ export const SpecialMenuChildrenList = () => {
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedChild, setSelectedChild] = useState<ChildWithSchool | null>(null);
+    const hasLoadedRef = useRef(false);
 
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     const fetchData = useCallback(async () => {
         try {
-            setIsLoading(true);
             setError(null);
+            if (!hasLoadedRef.current) {
+                setIsLoading(true);
+            }
             const [specialMenu, all] = await Promise.all([
                 ChildService.getChildrenWithSpecialMenu(),
                 ChildService.getAllChildren(),
             ]);
+            hasLoadedRef.current = true;
             setChildren(specialMenu);
             setAllChildren(all);
         } catch (err) {
