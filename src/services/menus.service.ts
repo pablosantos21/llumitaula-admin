@@ -211,5 +211,68 @@ export const MenuService = {
             schools,
             date
         };
-    }
+    },
+
+    deleteSpecialMenus: async (menuId: string): Promise<void> => {
+        const { data: assignments, error: fetchError } = await supabase
+            .from('menus_schools')
+            .select('menu_id, date')
+            .eq('menu_id', menuId);
+
+        if (fetchError) {
+            console.error('Error fetching assignments:', fetchError);
+            throw new Error(fetchError.message);
+        }
+
+        if (!assignments || assignments.length === 0) return;
+
+        const date = assignments[0].date;
+
+        const { data: sameDay, error: sameDayError } = await supabase
+            .from('menus_schools')
+            .select('menu_id')
+            .eq('date', date);
+
+        if (sameDayError) {
+            console.error('Error fetching same-day menus:', sameDayError);
+            throw new Error(sameDayError.message);
+        }
+
+        const menuIds = sameDay.map((ms: any) => ms.menu_id);
+
+        const { data: specialMenus, error: specialError } = await supabase
+            .from('menus')
+            .select('id')
+            .in('id', menuIds)
+            .neq('type', 'normal');
+
+        if (specialError) {
+            console.error('Error fetching special menus:', specialError);
+            throw new Error(specialError.message);
+        }
+
+        const specialIds = specialMenus.map((m: any) => m.id);
+
+        if (specialIds.length > 0) {
+            const { error: delAssignError } = await supabase
+                .from('menus_schools')
+                .delete()
+                .in('menu_id', specialIds);
+
+            if (delAssignError) {
+                console.error('Error deleting special menu assignments:', delAssignError);
+                throw new Error(delAssignError.message);
+            }
+
+            const { error: delMenuError } = await supabase
+                .from('menus')
+                .delete()
+                .in('id', specialIds);
+
+            if (delMenuError) {
+                console.error('Error deleting special menus:', delMenuError);
+                throw new Error(delMenuError.message);
+            }
+        }
+    },
 };
