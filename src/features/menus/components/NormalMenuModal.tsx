@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Check, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ALLERGENS } from '../constants/allergens'
 import type { School } from '@/services/schools.service'
 import type { MenuGroup } from '../types'
 

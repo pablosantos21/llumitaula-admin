@@ -55,12 +55,12 @@ export function Calendar({ onDateClick, highlightedDates, renderDay, currentMont
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     }
 
-    const isToday = (date: Date) => {
-        const today = new Date()
-        return date.getDate() === today.getDate() &&
-            date.getMonth() === today.getMonth() &&
-            date.getFullYear() === today.getFullYear()
-    }
+    // const isToday = (date: Date) => {
+    //     const today = new Date()
+    //     return date.getDate() === today.getDate() &&
+    //         date.getMonth() === today.getMonth() &&
+    //         date.getFullYear() === today.getFullYear()
+    // }
 
     const isSelected = (date: Date) => {
         if (!selectedDate) return false
