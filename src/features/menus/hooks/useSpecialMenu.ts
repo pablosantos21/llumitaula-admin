@@ -36,6 +36,7 @@ export const useSpecialMenu = (menuId: string) => {
     const [date, setDate] = useState<string>('')
     const [allergenGroups, setAllergenGroups] = useState<AllergenGroup[]>([])
     const [matrixData, setMatrixData] = useState<Record<string, MatrixCell>>({})
+    const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
@@ -51,6 +52,7 @@ export const useSpecialMenu = (menuId: string) => {
                 const schoolIds = menuData.schools.map(s => s.id)
                 if (schoolIds.length === 0) {
                     setAllergenGroups([])
+                    setMatrixData({})
                     return
                 }
 
@@ -90,6 +92,7 @@ export const useSpecialMenu = (menuId: string) => {
                 setMatrixData(initialMatrix)
             } catch (err) {
                 console.error('Error loading special menu data:', err)
+                setError(err instanceof Error ? err.message : 'Error al cargar los datos')
             } finally {
                 setIsLoading(false)
             }
@@ -159,6 +162,7 @@ export const useSpecialMenu = (menuId: string) => {
         date,
         allergenGroups,
         matrixData,
+        error,
         isLoading,
         isSaving,
         updateMatrixField,
