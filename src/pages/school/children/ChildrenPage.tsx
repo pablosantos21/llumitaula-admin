@@ -199,14 +199,10 @@ export default function ChildrenPage() {
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                <DataTable columns={columns} data={filteredChildren} />
-                {filteredChildren.length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                        No se encontraron alumnos.
-                    </div>
-                )}
-            </div>
+            <DataTable
+                columns={columns}
+                data={filteredChildren}
+            />
 
             <EditChildModal
                 isOpen={!!editingChild}

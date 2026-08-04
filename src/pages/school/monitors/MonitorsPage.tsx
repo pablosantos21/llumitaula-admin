@@ -211,14 +211,10 @@ export default function MonitorsPage() {
                 </Button>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                <DataTable columns={columns} data={monitors} />
-                {monitors.length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                        No hay monitores registrados para este colegio.
-                    </div>
-                )}
-            </div>
+            <DataTable
+                columns={columns}
+                data={monitors}
+            />
 
             <Modal
                 isOpen={isModalOpen}
@@ -391,6 +387,6 @@ export default function MonitorsPage() {
                     </div>
                 </form>
             </Modal>
-        </div>
+        </div >
     )
 }

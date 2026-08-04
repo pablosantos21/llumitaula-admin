@@ -8,9 +8,10 @@ interface DataTableProps<T> {
     }[]
     data: T[]
     onRowClick?: (item: T) => void
+    emptyMessage?: string
 }
 
-export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, onRowClick, emptyMessage = "No hay datos disponibles." }: DataTableProps<T>) {
     return (
         <div className="w-full overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full text-left text-sm border-collapse">
@@ -44,7 +45,7 @@ export function DataTable<T>({ columns, data, onRowClick }: DataTableProps<T>) {
                     ) : (
                         <tr>
                             <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-500 italic bg-white">
-                                No hay datos disponibles.
+                                {emptyMessage}
                             </td>
                         </tr>
                     )}

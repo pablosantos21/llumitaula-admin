@@ -94,14 +94,11 @@ export default function IncidentsPage() {
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                <DataTable columns={columns} data={incidents} />
-                {incidents.length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                        No hay incidencias registradas para este colegio.
-                    </div>
-                )}
-            </div>
+            <DataTable
+                columns={columns}
+                data={incidents}
+                emptyMessage="No hay incidencias registradas para este colegio."
+            />
         </div>
     )
 }

@@ -9,9 +9,10 @@ interface CalendarProps {
     renderDay?: (date: Date) => React.ReactNode
     currentMonth?: Date
     onMonthChange?: (date: Date) => void
+    selectedDate?: Date | null
 }
 
-export function Calendar({ onDateClick, highlightedDates, renderDay, currentMonth: controlledMonth, onMonthChange }: CalendarProps) {
+export function Calendar({ onDateClick, highlightedDates, renderDay, currentMonth: controlledMonth, onMonthChange, selectedDate }: CalendarProps) {
     const [internalMonth, setInternalMonth] = useState(new Date())
     const currentDate = controlledMonth || internalMonth
 
@@ -61,6 +62,13 @@ export function Calendar({ onDateClick, highlightedDates, renderDay, currentMont
             date.getFullYear() === today.getFullYear()
     }
 
+    const isSelected = (date: Date) => {
+        if (!selectedDate) return false
+        return date.getDate() === selectedDate.getDate() &&
+            date.getMonth() === selectedDate.getMonth() &&
+            date.getFullYear() === selectedDate.getFullYear()
+    }
+
     return (
         <div className="w-full bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -88,13 +96,15 @@ export function Calendar({ onDateClick, highlightedDates, renderDay, currentMont
                                     onClick={() => onDateClick?.(date)}
                                     className={cn(
                                         "w-full h-full rounded-lg flex flex-col items-center justify-center transition-all relative group p-1",
-                                        isToday(date) ? "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200" : "hover:bg-gray-50 text-gray-700",
-                                        highlightedDates?.has(formatDate(date)) && "font-bold"
+                                        isSelected(date)
+                                            ? "bg-indigo-100 text-gray-700 shadow-md shadow-indigo-100"
+                                            : "hover:bg-gray-50 text-gray-700",
+                                        highlightedDates?.has(formatDate(date)) && !isSelected(date) && "font-bold text-indigo-600"
                                     )}
                                 >
-                                    <span className="text-sm">{date.getDate()}</span>
+                                    <span className={cn("text-sm", isSelected(date) ? "font-bold" : "")}>{date.getDate()}</span>
                                     {renderDay && renderDay(date)}
-                                    {!renderDay && highlightedDates?.has(formatDate(date)) && (
+                                    {!renderDay && highlightedDates?.has(formatDate(date)) && !isSelected(date) && (
                                         <div className="absolute bottom-2 w-1 h-1 bg-indigo-600 rounded-full" />
                                     )}
                                     <div className="absolute inset-0 border-2 border-transparent group-hover:border-indigo-100 rounded-lg pointer-events-none" />
