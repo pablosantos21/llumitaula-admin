@@ -9,7 +9,6 @@ interface DailyProgrammingProps {
     groupedMenus: MenuGroup[];
     unassignedSchoolsCount: number;
     openNormalMenuModal: (group?: MenuGroup) => void;
-    openMatrixModal: (group: MenuGroup) => void;
 }
 
 export const DailyProgramming = ({
@@ -17,8 +16,7 @@ export const DailyProgramming = ({
     isLoading,
     groupedMenus,
     unassignedSchoolsCount,
-    openNormalMenuModal,
-    openMatrixModal
+    openNormalMenuModal
 }: DailyProgrammingProps) => {
     return (
         <div className="space-y-6">
@@ -55,7 +53,6 @@ export const DailyProgramming = ({
                                         key={idx}
                                         group={group}
                                         onEditNormal={openNormalMenuModal}
-                                        onEditSpecial={openMatrixModal}
                                     />
                                 ))
                             ) : (

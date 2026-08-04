@@ -1,0 +1,33 @@
+        <h2>Flujo Actual vs. Propuesto</h2>
+        <p class="subtitle">Vamos a cambiar cómo se accede y se generan los menús especiales</p>
+
+        <div class="split">
+            <div class="mockup">
+                <div class="mockup-header">Flujo Actual</div>
+                <div class="mockup-body">
+                    <div class="placeholder" style="margin-bottom:12px;">/menus → Pestaña "Gestión de Menús"</div>
+                    <div class="placeholder">MenuGroupCard → Botón "Configurar Menús Especiales"</div>
+                    <div style="text-align:center;padding:8px;font-size:20px;color:#6b7280;">↓</div>
+                    <div class="placeholder" style="background:#fef3c7;">Modal: SpecialMenusMatrixModal<br/><small>El usuario rellena manualmente los platos para cada tipo de menú especial (sin gluten, vegetariano, halal...)</small></div>
+                </div>
+            </div>
+            <div class="mockup">
+                <div class="mockup-header">Flujo Propuesto</div>
+                <div class="mockup-body">
+                    <div class="placeholder" style="margin-bottom:12px;">/menus → Pestaña "Gestión de Menús"</div>
+                    <div class="placeholder">MenuGroupCard → Botón "Configurar Menús Especiales"</div>
+                    <div style="text-align:center;padding:8px;font-size:20px;color:#4f46e5;">↓</div>
+                    <div class="placeholder" style="background:#e0e7ff;">Navega a nueva página: /menus-especiales<br/><small>Muestra TODOS los menús especiales, generados automáticamente agrupando los alérgenos de los niños de los colegios asignados a cada menú</small></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="margin-top:24px;">Concepto clave</h3>
+        <p>Los <strong>menús especiales</strong> ya no se configuran manualmente tipo por tipo. En su lugar, el sistema:</p>
+        <ol style="padding-left:20px;color:#374151;line-height:2;">
+            <li>Coge los <strong>colegios asignados</strong> a un menú del día</li>
+            <li>Busca los <strong>niños con alérgenos</strong> en esos colegios</li>
+            <li><strong>Agrupa por alérgenos comunes</strong> para determinar qué variantes de menú especial se necesitan</li>
+            <li>Muestra una <strong>vista consolidada</strong> de todos los menús especiales necesarios</li>
+        </ol>
+    

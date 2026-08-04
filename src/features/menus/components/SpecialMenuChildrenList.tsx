@@ -177,12 +177,18 @@ export const SpecialMenuChildrenList = () => {
                                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
                                     Colegio
                                 </th>
+                                <th className="text-left px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                    Alérgenos
+                                </th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                    Acción
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
                             {children.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
+                                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
                                         No hay niños con menú especial
                                     </td>
                                 </tr>
@@ -200,6 +206,27 @@ export const SpecialMenuChildrenList = () => {
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-600">
                                             {child.classes?.schools?.name || '-'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {child.child_allergens && child.child_allergens.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {child.child_allergens.map(a => (
+                                                        <span
+                                                            key={a.allergen_id}
+                                                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300"
+                                                        >
+                                                            {a.allergens.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-gray-400">Sin alérgenos</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button size="sm" variant="secondary" onClick={() => setSelectedChild(child)}>
+                                                Editar
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))

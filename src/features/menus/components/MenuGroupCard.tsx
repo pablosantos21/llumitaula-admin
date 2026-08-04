@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Building2, Edit2, Plus } from 'lucide-react'
 import type { MenuGroup } from '../types'
@@ -5,10 +6,11 @@ import type { MenuGroup } from '../types'
 interface MenuGroupCardProps {
     group: MenuGroup;
     onEditNormal: (group: MenuGroup) => void;
-    onEditSpecial: (group: MenuGroup) => void;
 }
 
-export const MenuGroupCard = ({ group, onEditNormal, onEditSpecial }: MenuGroupCardProps) => {
+export const MenuGroupCard = ({ group, onEditNormal }: MenuGroupCardProps) => {
+    const navigate = useNavigate()
+
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -62,7 +64,7 @@ export const MenuGroupCard = ({ group, onEditNormal, onEditSpecial }: MenuGroupC
                         variant="primary"
                         size="sm"
                         className="h-8 shadow-sm gap-2"
-                        onClick={() => onEditSpecial(group)}
+                        onClick={() => navigate(`/menus/${group.menu.id}`)}
                     >
                         <Plus className="h-4 w-4" />
                         Configurar Menús Especiales

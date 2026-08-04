@@ -6,7 +6,6 @@ import {
     CoverageCalendar,
     DailyProgramming,
     NormalMenuModal,
-    SpecialMenusMatrixModal,
     SpecialMenusView
 } from '@/features/menus'
 
@@ -33,19 +32,13 @@ export default function MenusPage() {
     const {
         isMenuModalOpen,
         setIsMenuModalOpen,
-        isMatrixModalOpen,
-        setIsMatrixModalOpen,
         editingGroup,
         isSaving,
         formData,
         setFormData,
-        matrixData,
         openNormalMenuModal,
-        openMatrixModal,
-        updateMatrixField,
         toggleSelection,
         handleSaveAssignment,
-        handleSaveMatrix
     } = useMenuForm(selectedDate, refreshData)
 
     return (
@@ -78,7 +71,6 @@ export default function MenusPage() {
                                 groupedMenus={groupedMenus}
                                 unassignedSchoolsCount={unassignedSchoolsCount}
                                 openNormalMenuModal={openNormalMenuModal}
-                                openMatrixModal={openMatrixModal}
                             />
                         </div>
 
@@ -92,15 +84,6 @@ export default function MenusPage() {
                             assignedSchoolIds={assignedSchoolIds}
                             toggleSelection={toggleSelection}
                             onSave={handleSaveAssignment}
-                            isSaving={isSaving}
-                        />
-
-                        <SpecialMenusMatrixModal
-                            isOpen={isMatrixModalOpen}
-                            onClose={() => setIsMatrixModalOpen(false)}
-                            matrixData={matrixData}
-                            updateMatrixField={updateMatrixField}
-                            onSave={handleSaveMatrix}
                             isSaving={isSaving}
                         />
                     </>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ChildService, type Child } from '../../../services/children.service'
 import { ClassService, type Class } from '../../../services/classes.service'
+import { AllergenService, type Allergen } from '../../../services/allergens.service'
 import { DataTable } from '../../../components/ui/data-table'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
@@ -20,6 +21,7 @@ export default function ChildrenPage() {
     const [deletingChild, setDeletingChild] = useState<Child | null>(null)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [classes, setClasses] = useState<Class[]>([])
+    const [allergens, setAllergens] = useState<Allergen[]>([])
     const [isSaving, setIsSaving] = useState(false)
 
     useEffect(() => {
@@ -27,12 +29,14 @@ export default function ChildrenPage() {
             if (!schoolId) return
             try {
                 setIsLoading(true)
-                const [childrenData, classesData] = await Promise.all([
+                const [childrenData, classesData, allergensData] = await Promise.all([
                     ChildService.getChildrenBySchool(schoolId),
-                    ClassService.getClassesBySchool(schoolId)
+                    ClassService.getClassesBySchool(schoolId),
+                    AllergenService.getAll()
                 ])
                 setChildren(childrenData)
                 setClasses(classesData)
+                setAllergens(allergensData)
             } catch (err) {
                 console.error('Error fetching data:', err)
                 setError('No se pudieron cargar los datos')
@@ -50,29 +54,31 @@ export default function ChildrenPage() {
         return fullName.includes(search) || className.includes(search)
     })
 
-    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string }) => {
+    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }) => {
         try {
             setIsSaving(true)
-            await ChildService.createChild(newChildData)
-            // Refresh list
+            const { allergenIds, ...childData } = newChildData
+            const created = await ChildService.createChild(childData)
+            if (allergenIds.length > 0) {
+                await ChildService.setChildAllergens(created.id, allergenIds)
+            }
             if (schoolId) {
                 const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
                 setChildren(updatedChildren)
             }
         } catch (err) {
             console.error('Error creating child:', err)
-            // You might want to show a toast here
         } finally {
             setIsSaving(false)
         }
     }
 
-    const handleUpdateChild = async (updatedChild: Child) => {
+    const handleUpdateChild = async (updatedChild: Child, allergenIds: string[]) => {
         try {
             setIsSaving(true)
-            const { id, classes, created_at, ...updates } = updatedChild
+            const { id, classes, created_at, child_allergens, ...updates } = updatedChild
             await ChildService.updateChild(id, updates)
-            // Refresh list or update local state
+            await ChildService.setChildAllergens(id, allergenIds)
             if (schoolId) {
                 const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
                 setChildren(updatedChildren)
@@ -114,6 +120,17 @@ export default function ChildrenPage() {
             accessor: (child: Child) => (
                 <span className="text-sm font-medium text-gray-700">{child.classes?.name || 'Sin asignar'}</span>
             )
+        },
+        {
+            header: 'Menú Especial',
+            accessor: (child: Child) => {
+                const hasAllergens = child.child_allergens && child.child_allergens.length > 0
+                return (
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${hasAllergens ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                        {hasAllergens ? `Sí (${child.child_allergens!.length})` : 'No'}
+                    </span>
+                )
+            }
         },
         {
             header: 'Fecha de Alta',
@@ -209,6 +226,7 @@ export default function ChildrenPage() {
                 onClose={() => setEditingChild(null)}
                 child={editingChild}
                 classes={classes}
+                allergens={allergens}
                 isLoading={isSaving}
                 onSave={handleUpdateChild}
             />
@@ -217,6 +235,7 @@ export default function ChildrenPage() {
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 classes={classes}
+                allergens={allergens}
                 isLoading={isSaving}
                 onSave={handleCreateChild}
             />

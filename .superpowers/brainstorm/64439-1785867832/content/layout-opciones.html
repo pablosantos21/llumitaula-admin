@@ -1,0 +1,86 @@
+        <h2>Diseño de /menus/:idMenu — Dos Opciones</h2>
+        <p class="subtitle">La nueva página muestra el menú base + las variantes según agrupaciones de alérgenos de los niños</p>
+
+        <div class="split">
+            <div class="mockup">
+                <div class="mockup-header">Opción A: Vista de Tarjetas</div>
+                <div class="mockup-body">
+                    <div class="placeholder" style="margin-bottom:16px;font-weight:bold;">← Volver | Menú 15 Mayo 2026</div>
+
+                    <div class="placeholder" style="margin-bottom:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+                        <strong>Menú Base</strong><br/>
+                        <small>1º Lentejas | 2º Pollo | Postre Fruta</small><br/>
+                        <small>Colegios: CEIP Sol, CEIP Luna</small>
+                    </div>
+
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <div class="placeholder" style="flex:1;min-width:180px;background:#fef3c7;">
+                            <strong>Gluten</strong> <span class="badge">12 niños</span><br/>
+                            <small>1º _____ | 2º _____ | Postre _____</small><br/>
+                            <small style="color:#6b7280;">(hereda del base)</small>
+                        </div>
+                        <div class="placeholder" style="flex:1;min-width:180px;background:#fef3c7;">
+                            <strong>Lácteos</strong> <span class="badge">8 niños</span><br/>
+                            <small>1º _____ | 2º _____ | Postre _____</small><br/>
+                            <small style="color:#6b7280;">(hereda del base)</small>
+                        </div>
+                        <div class="placeholder" style="flex:1;min-width:180px;background:#fef3c7;">
+                            <strong>Gluten + Lácteos</strong> <span class="badge">3 niños</span><br/>
+                            <small>1º _____ | 2º _____ | Postre _____</small><br/>
+                            <small style="color:#6b7280;">(hereda del base)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mockup">
+                <div class="mockup-header">Opción B: Vista de Tabla / Matriz</div>
+                <div class="mockup-body">
+                    <div class="placeholder" style="margin-bottom:16px;font-weight:bold;">← Volver | Menú 15 Mayo 2026 — CEIP Sol, CEIP Luna</div>
+
+                    <table style="width:100%;font-size:13px;border-collapse:collapse;">
+                        <tr style="background:#f9fafb;">
+                            <th style="padding:6px;border:1px solid #e5e7eb;text-align:left;">Plato</th>
+                            <th style="padding:6px;border:1px solid #e5e7eb;background:#dbeafe;">Base</th>
+                            <th style="padding:6px;border:1px solid #e5e7eb;">Gluten<br/><small>12 niños</small></th>
+                            <th style="padding:6px;border:1px solid #e5e7eb;">Lácteos<br/><small>8 niños</small></th>
+                            <th style="padding:6px;border:1px solid #e5e7eb;">Gluten+Lácteos<br/><small>3 niños</small></th>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px;border:1px solid #e5e7eb;font-weight:500;">1º Plato</td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;color:#6b7280;" class="placeholder">Lentejas</td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Lentejas SG" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Lentejas SL" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Lentejas SG+SL" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px;border:1px solid #e5e7eb;font-weight:500;">2º Plato</td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;color:#6b7280;" class="placeholder">Pollo</td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Pollo" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Pollo" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Pollo" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px;border:1px solid #e5e7eb;font-weight:500;">Postre</td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;color:#6b7280;" class="placeholder">Fruta</td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Fruta" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Fruta" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                            <td style="padding:6px;border:1px solid #e5e7eb;"><input placeholder="Fruta" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;"></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" style="margin-top:16px;">
+            <h3>Opción A: Tarjetas</h3>
+            <div class="pros-cons">
+                <div class="pros"><h4>Pros</h4><ul><li>Más visual y legible</li><li>Se ve bien en móvil</li><li>Cada variante es una unidad clara</li></ul></div>
+                <div class="cons"><h4>Contras</h4><ul><li>Ocupa más espacio vertical</li><li>Comparar platos entre variantes es más difícil</li></ul></div>
+            </div>
+            <h3>Opción B: Tabla / Matriz</h3>
+            <div class="pros-cons">
+                <div class="pros"><h4>Pros</h4><ul><li>Fácil comparar platos entre variantes</li><li>Compacto, todo a la vista</li><li>Similar al modal actual (familiar)</li></ul></div>
+                <div class="cons"><h4>Contras</h4><ul><li>Scroll horizontal si hay muchas variantes</li><li>Menos amigable en móvil</li></ul></div>
+            </div>
+        </div>
+    

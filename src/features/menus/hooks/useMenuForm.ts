@@ -28,15 +28,10 @@ const initialFormState: FormState = {
 
 export const useMenuForm = (selectedDate: Date | null, onSaveSuccess: () => void) => {
     const [isMenuModalOpen, setIsMenuModalOpen] = useState(false)
-    const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false)
     const [editingGroup, setEditingGroup] = useState<MenuGroup | null>(null)
     const [isSaving, setIsSaving] = useState(false)
 
-    // Form state for Normal Menu
     const [formData, setFormData] = useState<FormState>(initialFormState)
-
-    // Form state for Matrix (Special Menus)
-    const [matrixData, setMatrixData] = useState<Record<string, any>>({})
 
     const openNormalMenuModal = useCallback((group?: MenuGroup) => {
         if (group) {
@@ -56,38 +51,6 @@ export const useMenuForm = (selectedDate: Date | null, onSaveSuccess: () => void
             setFormData(initialFormState)
         }
         setIsMenuModalOpen(true)
-    }, [])
-
-    const openMatrixModal = useCallback((group: MenuGroup) => {
-        setEditingGroup(group)
-        const initialMatrix: Record<string, any> = {}
-
-        // Find all special types supported by any school in this group
-        const supportedSpecialTypes = Array.from(new Set((group.schools as any[]).flatMap(s => s.supportedMenuTypes)))
-            .filter(t => t !== 'normal') as MenuType[]
-
-        supportedSpecialTypes.forEach(type => {
-            const variant = (group as any).variations?.find((v: any) => v.type === type)?.menu
-            initialMatrix[type] = {
-                first_course: variant?.first_course || group.menu?.first_course || '',
-                second_course: variant?.second_course || group.menu?.second_course || '',
-                side: variant?.side || group.menu?.side || '',
-                salad: variant?.salad || group.menu?.salad || '',
-                dessert: variant?.dessert || group.menu?.dessert || ''
-            }
-        })
-        setMatrixData(initialMatrix)
-        setIsMatrixModalOpen(true)
-    }, [])
-
-    const updateMatrixField = useCallback((type: string, field: string, value: string) => {
-        setMatrixData(prev => ({
-            ...prev,
-            [type]: {
-                ...prev[type],
-                [field]: value
-            }
-        }))
     }, [])
 
     const toggleSelection = useCallback((id: string, field: 'schoolIds' | 'allergens') => {
@@ -132,58 +95,15 @@ export const useMenuForm = (selectedDate: Date | null, onSaveSuccess: () => void
         }
     }
 
-    const handleSaveMatrix = async () => {
-        if (!selectedDate || !editingGroup) return;
-
-        try {
-            setIsSaving(true);
-            const dateStr = formatDate(selectedDate);
-
-            const savePromises = Object.entries(matrixData).map(async ([type, fields]) => {
-                const hasContent = Object.values(fields).some(v => !!v);
-                if (!hasContent) return;
-
-                const menuData = {
-                    type: type as MenuType,
-                    ...fields as any,
-                };
-
-                const savedMenu = await MenuService.upsertMenu(menuData);
-
-                await MenuService.assignMenuToSchools(
-                    savedMenu.id,
-                    editingGroup.schoolIds,
-                    dateStr
-                );
-            });
-
-            await Promise.all(savePromises);
-
-            onSaveSuccess();
-            setIsMatrixModalOpen(false);
-        } catch (err) {
-            console.error('Error saving matrix:', err);
-            alert('Error al guardar los menús especiales');
-        } finally {
-            setIsSaving(false);
-        }
-    }
-
     return {
         isMenuModalOpen,
         setIsMenuModalOpen,
-        isMatrixModalOpen,
-        setIsMatrixModalOpen,
         editingGroup,
         isSaving,
         formData,
         setFormData,
-        matrixData,
         openNormalMenuModal,
-        openMatrixModal,
-        updateMatrixField,
         toggleSelection,
         handleSaveAssignment,
-        handleSaveMatrix
     }
 }
