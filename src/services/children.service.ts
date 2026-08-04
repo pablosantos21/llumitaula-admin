@@ -220,4 +220,46 @@ export const ChildService = {
 
         return (data as unknown as ChildWithSchool[]) || [];
     },
+
+    getChildrenAllergensBySchools: async (schoolIds: string[]): Promise<{
+        id: string;
+        first_name: string;
+        last_name: string;
+        allergens: { id: string; name: string }[];
+    }[]> => {
+        const { data, error } = await supabase
+            .from('children')
+            .select(`
+                id,
+                first_name,
+                last_name,
+                class_id,
+                classes!inner(
+                    id,
+                    school_id
+                ),
+                child_allergens(
+                    allergen_id,
+                    allergens(
+                        id,
+                        name
+                    )
+                )
+            `)
+            .in('classes.school_id', schoolIds)
+            .not('child_allergens', 'is', null)
+            .order('first_name');
+
+        if (error) {
+            console.error('Error fetching children allergens:', error);
+            throw new Error(error.message);
+        }
+
+        return (data || []).map((c: any) => ({
+            id: c.id,
+            first_name: c.first_name,
+            last_name: c.last_name,
+            allergens: (c.child_allergens || []).map((ca: any) => ca.allergens)
+        }));
+    },
 };
