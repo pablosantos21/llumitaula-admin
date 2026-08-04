@@ -10,6 +10,13 @@ export interface Child {
         id: string;
         name: string;
     }
+    child_allergens?: {
+        allergen_id: string;
+        allergens: {
+            id: string;
+            name: string;
+        }
+    }[]
 }
 
 export interface ChildWithSchool {
@@ -18,7 +25,13 @@ export interface ChildWithSchool {
     last_name: string;
     class_id: string;
     created_at: string;
-    special_menu: boolean;
+    child_allergens?: {
+        allergen_id: string;
+        allergens: {
+            id: string;
+            name: string;
+        }
+    }[]
     classes: {
         id: string;
         name: string;
@@ -44,6 +57,13 @@ export const ChildService = {
                     id,
                     name,
                     school_id
+                ),
+                child_allergens(
+                    allergen_id,
+                    allergens(
+                        id,
+                        name
+                    )
                 )
             `)
             .eq('classes.school_id', schoolId)
@@ -57,7 +77,7 @@ export const ChildService = {
         return (data as unknown as Child[]) || [];
     },
 
-    createChild: async (child: Omit<Child, 'id' | 'created_at' | 'classes'>): Promise<Child> => {
+    createChild: async (child: Omit<Child, 'id' | 'created_at' | 'classes' | 'child_allergens'>): Promise<Child> => {
         const { data, error } = await supabase
             .from('children')
             .insert([child])
@@ -100,7 +120,35 @@ export const ChildService = {
         }
     },
 
-    getChildrenWithSpecialMenu: async (): Promise<ChildWithSchool[]> => {
+    setChildAllergens: async (childId: string, allergenIds: string[]): Promise<void> => {
+        const { error: deleteError } = await supabase
+            .from('child_allergens')
+            .delete()
+            .eq('child_id', childId);
+
+        if (deleteError) {
+            console.error('Error deleting child allergens:', deleteError);
+            throw new Error(deleteError.message);
+        }
+
+        if (allergenIds.length > 0) {
+            const rows = allergenIds.map(allergenId => ({
+                child_id: childId,
+                allergen_id: allergenId,
+            }));
+
+            const { error: insertError } = await supabase
+                .from('child_allergens')
+                .insert(rows);
+
+            if (insertError) {
+                console.error('Error inserting child allergens:', insertError);
+                throw new Error(insertError.message);
+            }
+        }
+    },
+
+    getAllChildren: async (): Promise<ChildWithSchool[]> => {
         const { data, error } = await supabase
             .from('children')
             .select(`
@@ -109,7 +157,13 @@ export const ChildService = {
                 last_name,
                 class_id,
                 created_at,
-                special_menu,
+                child_allergens(
+                    allergen_id,
+                    allergens(
+                        id,
+                        name
+                    )
+                ),
                 classes!inner(
                     id,
                     name,
@@ -120,7 +174,43 @@ export const ChildService = {
                     )
                 )
             `)
-            .eq('special_menu', true)
+            .order('first_name');
+
+        if (error) {
+            console.error('Error fetching all children:', error);
+            throw new Error(error.message);
+        }
+
+        return (data as unknown as ChildWithSchool[]) || [];
+    },
+
+    getChildrenWithSpecialMenu: async (): Promise<ChildWithSchool[]> => {
+        const { data, error } = await supabase
+            .from('children')
+            .select(`
+                id,
+                first_name,
+                last_name,
+                class_id,
+                created_at,
+                child_allergens(
+                    allergen_id,
+                    allergens(
+                        id,
+                        name
+                    )
+                ),
+                classes!inner(
+                    id,
+                    name,
+                    school_id,
+                    schools(
+                        id,
+                        name
+                    )
+                )
+            `)
+            .not('child_allergens', 'is', null)
             .order('first_name');
 
         if (error) {
