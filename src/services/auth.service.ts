@@ -1,11 +1,21 @@
 import { supabase } from '../lib/supabase';
 
+export type UserRole = 'admin' | 'supervisor' | 'monitor';
+
 export interface User {
     id: string;
     name: string;
     email: string;
-    role: 'admin' | 'monitor';
+    role: UserRole;
 }
+
+const normalizeRole = (role: unknown): UserRole => {
+    if (role === 'admin' || role === 'supervisor' || role === 'monitor') {
+        return role;
+    }
+
+    return 'monitor';
+};
 
 export const AuthService = {
     login: async (email: string, password: string): Promise<User> => {
@@ -23,12 +33,12 @@ export const AuthService = {
         }
 
         // Map Supabase user to our User interface
-        // We assume the role is stored in user metadata or we default to admin for now
+        // We assume the role is stored in user metadata or default to monitor
         return {
             id: data.user.id,
             name: data.user.email?.split('@')[0] || 'User',
             email: data.user.email || '',
-            role: (data.user.user_metadata?.role as 'admin' | 'monitor') || 'admin',
+            role: normalizeRole(data.user.user_metadata?.role),
         };
     },
 
@@ -48,7 +58,7 @@ export const AuthService = {
             id: user.id,
             name: user.email?.split('@')[0] || 'User',
             email: user.email || '',
-            role: (user.user_metadata?.role as 'admin' | 'monitor') || 'admin',
+            role: normalizeRole(user.user_metadata?.role),
         };
     },
 
@@ -59,7 +69,7 @@ export const AuthService = {
                     id: session.user.id,
                     name: session.user.email?.split('@')[0] || 'User',
                     email: session.user.email || '',
-                    role: (session.user.user_metadata?.role as 'admin' | 'monitor') || 'admin',
+                    role: normalizeRole(session.user.user_metadata?.role),
                 });
             } else {
                 callback(null);
