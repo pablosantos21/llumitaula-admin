@@ -17,7 +17,7 @@ export const ClassService = {
 
         if (error) {
             console.error('Error fetching classes:', error);
-            throw new Error(error.message);
+            throw error;
         }
 
         return data || [];
@@ -32,7 +32,7 @@ export const ClassService = {
 
         if (error) {
             console.error('Error creating class:', error);
-            throw new Error(error.message);
+            throw error;
         }
 
         return data;
@@ -48,7 +48,7 @@ export const ClassService = {
 
         if (error) {
             console.error('Error updating class:', error);
-            throw new Error(error.message);
+            throw error;
         }
 
         return data;
@@ -64,7 +64,7 @@ export const ClassService = {
 
         if (error) {
             console.error('Error setting class active state:', error);
-            throw new Error(error.message);
+            throw error;
         }
 
         return data;
@@ -78,7 +78,7 @@ export const ClassService = {
 
         if (error) {
             console.error('Error deleting class:', error);
-            throw new Error(error.message);
+            throw error;
         }
     }
 };
