@@ -11,7 +11,11 @@ import IncidentsPage from './pages/school/incidents/IncidentsPage'
 
 // Protected Route Wrapper
 function ProtectedRoute() {
-  const { isAuthenticated } = useAuth()
+  const { isLoading, isAuthenticated } = useAuth()
+
+  if (isLoading) {
+    return <div />
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
@@ -21,7 +25,11 @@ function ProtectedRoute() {
 }
 
 function AdminRoute() {
-  const { isAdmin } = useAuth()
+  const { isLoading, isAdmin } = useAuth()
+
+  if (isLoading) {
+    return <div />
+  }
 
   if (!isAdmin) {
     return <Navigate to="/select-school" replace />
