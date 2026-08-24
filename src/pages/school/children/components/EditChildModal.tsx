@@ -23,6 +23,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
     const [classId, setClassId] = useState('')
     const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (child) {
             setFirstName(child.first_name)
@@ -33,6 +34,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
             )
         }
     }, [child, isOpen])
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const toggleAllergen = (allergenId: string) => {
         setSelectedAllergens(prev =>
@@ -96,7 +98,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
                         <option value="">Selecciona una clase</option>
                         {classes.map((cls) => (
                             <option key={cls.id} value={cls.id}>
-                                {cls.name}
+                                {cls.name}{!cls.is_active ? ' (Inactiva)' : ''}
                             </option>
                         ))}
                     </select>

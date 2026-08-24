@@ -54,6 +54,18 @@ export default function ChildrenPage() {
         return fullName.includes(search) || className.includes(search)
     })
 
+    const activeClasses = Array.from(new Map(
+        classes
+            .filter(cls => cls.is_active)
+            .map(cls => [cls.id, cls] as const)
+    ).values())
+    const editClasses = editingChild
+        ? Array.from(new Map([
+            ...activeClasses,
+            ...classes.filter(cls => cls.id === editingChild.class_id && !cls.is_active)
+        ].map(cls => [cls.id, cls])).values())
+        : activeClasses
+
     const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }) => {
         try {
             setIsSaving(true)
@@ -76,7 +88,8 @@ export default function ChildrenPage() {
     const handleUpdateChild = async (updatedChild: Child, allergenIds: string[]) => {
         try {
             setIsSaving(true)
-            const { id, classes, created_at, child_allergens, ...updates } = updatedChild
+            const { id, first_name, last_name, class_id } = updatedChild
+            const updates = { first_name, last_name, class_id }
             await ChildService.updateChild(id, updates)
             await ChildService.setChildAllergens(id, allergenIds)
             if (schoolId) {
@@ -225,7 +238,7 @@ export default function ChildrenPage() {
                 isOpen={!!editingChild}
                 onClose={() => setEditingChild(null)}
                 child={editingChild}
-                classes={classes}
+                classes={editClasses}
                 allergens={allergens}
                 isLoading={isSaving}
                 onSave={handleUpdateChild}
@@ -234,7 +247,7 @@ export default function ChildrenPage() {
             <AddChildModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
-                classes={classes}
+                classes={activeClasses}
                 allergens={allergens}
                 isLoading={isSaving}
                 onSave={handleCreateChild}
