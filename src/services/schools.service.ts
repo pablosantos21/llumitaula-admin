@@ -30,6 +30,20 @@ export const SchoolService = {
 
         return data;
     },
+    updateSchoolName: async (id: string, name: string): Promise<School> => {
+        const { data, error } = await supabase
+            .from('schools')
+            .update({ name })
+            .eq('id', id)
+            .select('id, name')
+            .single()
+
+        if (error) {
+            throw error;
+        }
+
+        return data;
+    },
     deleteSchool: async (id: string): Promise<void> => {
         const { error } = await supabase
             .from('schools')
