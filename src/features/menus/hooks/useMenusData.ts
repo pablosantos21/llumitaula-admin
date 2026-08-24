@@ -64,7 +64,7 @@ export const useMenusData = () => {
         if (isDifferentMonth) {
             setSelectedDate(firstWorkday)
         }
-    }, [currentMonth, fetchCoverage])
+    }, [currentMonth, fetchCoverage, selectedDate])
 
     const getDayCoverage = useCallback((date: Date): DayCoverageInfo => {
         const dateStr = formatDate(date);
@@ -115,6 +115,8 @@ export const useMenusData = () => {
                 return schools.find(s => s.id === id) || { id, name: `School ${id}` };
             });
 
+            // Menu records use a legacy bilingual shape in the shared schema.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const m = assignment.menu as any;
             return {
                 menu: {

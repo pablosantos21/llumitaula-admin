@@ -14,7 +14,7 @@ interface EditChildModalProps {
     classes: Class[]
     allergens: Allergen[]
     isLoading?: boolean
-    onSave: (updatedChild: Child, allergenIds: string[]) => void
+    onSave: (updatedChild: Child, allergenIds: string[]) => Promise<boolean>
 }
 
 export function EditChildModal({ isOpen, onClose, child, classes, allergens, isLoading, onSave }: EditChildModalProps) {
@@ -44,10 +44,10 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
         )
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (child) {
-            onSave(
+            const saved = await onSave(
                 {
                     ...child,
                     first_name: firstName,
@@ -56,8 +56,8 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
                 },
                 selectedAllergens
             )
+            if (saved) onClose()
         }
-        onClose()
     }
 
     return (

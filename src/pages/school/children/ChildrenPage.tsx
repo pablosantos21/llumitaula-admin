@@ -16,6 +16,7 @@ export default function ChildrenPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [editingChild, setEditingChild] = useState<Child | null>(null)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [classes, setClasses] = useState<Class[]>([])
@@ -24,7 +25,11 @@ export default function ChildrenPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!schoolId) return
+            if (!schoolId) {
+                setLoadError('No se pudo identificar el colegio')
+                setIsLoading(false)
+                return
+            }
             try {
                 setIsLoading(true)
                 const [childrenData, classesData, allergensData] = await Promise.all([
@@ -35,9 +40,11 @@ export default function ChildrenPage() {
                 setChildren(childrenData)
                 setClasses(classesData)
                 setAllergens(allergensData)
+                setError(null)
+                setLoadError(null)
             } catch (err) {
                 console.error('Error fetching data:', err)
-                setError('No se pudieron cargar los datos')
+                setLoadError('No se pudieron cargar los datos')
             } finally {
                 setIsLoading(false)
             }
@@ -64,9 +71,10 @@ export default function ChildrenPage() {
         ].map(cls => [cls.id, cls])).values())
         : activeClasses
 
-    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }) => {
+    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }): Promise<boolean> => {
         try {
             setIsSaving(true)
+            setError(null)
             const { allergenIds, ...childData } = newChildData
             const created = await ChildService.createChild(childData)
             if (allergenIds.length > 0) {
@@ -76,16 +84,20 @@ export default function ChildrenPage() {
                 const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
                 setChildren(updatedChildren)
             }
+            return true
         } catch (err) {
             console.error('Error creating child:', err)
+            setError('No se pudo inscribir al niño')
+            return false
         } finally {
             setIsSaving(false)
         }
     }
 
-    const handleUpdateChild = async (updatedChild: Child, allergenIds: string[]) => {
+    const handleUpdateChild = async (updatedChild: Child, allergenIds: string[]): Promise<boolean> => {
         try {
             setIsSaving(true)
+            setError(null)
             const { id, first_name, last_name, class_id } = updatedChild
             const updates = { first_name, last_name, class_id }
             await ChildService.updateChild(id, updates)
@@ -94,8 +106,11 @@ export default function ChildrenPage() {
                 const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
                 setChildren(updatedChildren)
             }
+            return true
         } catch (err) {
             console.error('Error updating child:', err)
+            setError('No se pudo guardar el niño')
+            return false
         } finally {
             setIsSaving(false)
         }
@@ -104,6 +119,7 @@ export default function ChildrenPage() {
     const handleToggleChild = async (child: Child) => {
         try {
             setIsSaving(true)
+            setError(null)
             const updated = await ChildService.setChildActive(child.id, !child.is_active)
             setChildren(prev => prev.map(current => current.id === updated.id
                 ? { ...current, is_active: updated.is_active }
@@ -184,6 +200,7 @@ export default function ChildrenPage() {
                         className={`h-8 w-8 ${child.is_active ? 'text-gray-400 hover:text-red-600' : 'text-green-600 hover:text-green-700'}`}
                         title={child.is_active ? 'Desactivar' : 'Activar'}
                         onClick={() => handleToggleChild(child)}
+                        disabled={isSaving}
                     >
                         <Power className="h-4 w-4" />
                     </Button>
@@ -201,10 +218,10 @@ export default function ChildrenPage() {
         )
     }
 
-    if (error) {
+    if (loadError) {
         return (
             <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg text-center">
-                {error}
+                {loadError}
             </div>
         )
     }
@@ -216,6 +233,7 @@ export default function ChildrenPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Listado de Niños</h1>
                     <p className="text-sm text-gray-500">Consulta y gestiona la información de los alumnos comensales.</p>
                 </div>
+                {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</div>}
                 <div className="flex gap-2">
                     <Button
                         className="flex items-center gap-2"

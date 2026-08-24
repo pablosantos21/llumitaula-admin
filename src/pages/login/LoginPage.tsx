@@ -21,7 +21,7 @@ export default function LoginPage() {
         try {
             await login(email, password)
             navigate('/select-school')
-        } catch (err) {
+        } catch {
             setError('Credenciales incorrectas')
         }
     }

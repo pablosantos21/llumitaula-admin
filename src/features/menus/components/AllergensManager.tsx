@@ -61,8 +61,8 @@ export const AllergensManager = () => {
             }
             await fetchAllergens();
             setIsModalOpen(false);
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Error al guardar');
         } finally {
             setIsSaving(false);
         }
@@ -73,8 +73,8 @@ export const AllergensManager = () => {
         try {
             await AllergenService.delete(id);
             await fetchAllergens();
-        } catch (err: any) {
-            alert(err.message || 'Error al eliminar');
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'Error al eliminar');
         }
     };
 

@@ -58,7 +58,7 @@ export default function IncidentsPage() {
         {
             header: 'Acciones',
             className: 'text-right',
-            accessor: (_incident: Incident) => (
+            accessor: () => (
                 <div className="flex justify-end">
                     <Button variant="ghost" size="sm" className="text-indigo-600">
                         Ver detalle

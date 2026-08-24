@@ -11,7 +11,9 @@ import {
     Menu as MenuIcon,
     X,
     School as SchoolIcon,
-    Loader2
+    Loader2,
+    Smartphone
+    , History
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '../lib/utils';
@@ -48,6 +50,8 @@ export default function DashboardLayout() {
         { name: 'Niños', href: `/school/${schoolId}/children`, icon: Baby },
         { name: 'Incidencias', href: `/school/${schoolId}/incidences`, icon: AlertTriangle },
         { name: 'Aulas', href: `/school/${schoolId}/classes`, icon: SchoolIcon },
+        { name: 'Dispositivos', href: `/school/${schoolId}/devices`, icon: Smartphone },
+        { name: 'Historial', href: `/school/${schoolId}/history`, icon: History },
     ];
 
     const handleLogout = async () => {

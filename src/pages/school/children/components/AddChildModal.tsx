@@ -12,7 +12,7 @@ interface AddChildModalProps {
     classes: Class[]
     allergens: Allergen[]
     isLoading?: boolean
-    onSave: (child: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }) => void
+    onSave: (child: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }) => Promise<boolean>
 }
 
 export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, onSave }: AddChildModalProps) {
@@ -29,22 +29,24 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
         )
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!firstName || !lastName || !classId) return
 
-        onSave({
+        const saved = await onSave({
             first_name: firstName,
             last_name: lastName,
             class_id: classId,
             allergenIds: selectedAllergens,
         })
 
-        setFirstName('')
-        setLastName('')
-        setClassId('')
-        setSelectedAllergens([])
-        onClose()
+        if (saved) {
+            setFirstName('')
+            setLastName('')
+            setClassId('')
+            setSelectedAllergens([])
+            onClose()
+        }
     }
 
     return (
