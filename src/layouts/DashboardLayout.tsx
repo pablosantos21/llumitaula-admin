@@ -19,7 +19,7 @@ import { SchoolService, type School } from '../services/schools.service';
 
 export default function DashboardLayout() {
     const { schoolId } = useParams<{ schoolId: string }>();
-    const { user, logout } = useAuth();
+    const { user, logout, isAdmin } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -81,7 +81,7 @@ export default function DashboardLayout() {
                         Volver al panel
                     </Link>
 
-                    {navigation.map((item) => {
+                    {isAdmin && navigation.map((item) => {
                         const isActive = location.pathname.startsWith(item.href);
                         return (
                             <Link
@@ -144,7 +144,7 @@ export default function DashboardLayout() {
                 </div>
                 <nav className="flex-1 p-4 space-y-1">
                     {/* Same nav links for mobile */}
-                    {navigation.map((item) => {
+                    {isAdmin && navigation.map((item) => {
                         const isActive = location.pathname.startsWith(item.href);
                         return (
                             <Link
