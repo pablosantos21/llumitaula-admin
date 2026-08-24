@@ -5,7 +5,7 @@ import SelectSchoolPage from './pages/select-school/SelectSchoolPage'
 import DashboardLayout from './layouts/DashboardLayout'
 import MenusPage from './pages/menus/MenusPage'
 import SpecialMenuPage from './pages/menus/SpecialMenuPage'
-import MonitorsPage from './pages/school/monitors/MonitorsPage'
+import WorkersPage from './pages/school/monitors/WorkersPage'
 import ChildrenPage from './pages/school/children/ChildrenPage'
 import IncidentsPage from './pages/school/incidents/IncidentsPage'
 import ClassesPage from './pages/school/classes/ClassesPage'
@@ -56,7 +56,7 @@ function App() {
 
               <Route path="/school/:schoolId" element={<DashboardLayout />}>
                 <Route index element={<Navigate to="monitors" replace />} />
-                <Route path="monitors" element={<MonitorsPage />} />
+                <Route path="monitors" element={<WorkersPage />} />
                 <Route path="children" element={<ChildrenPage />} />
                 <Route path="incidences" element={<IncidentsPage />} />
                 <Route path="classes" element={<ClassesPage />} />

@@ -5,6 +5,7 @@ export interface Child {
     first_name: string;
     last_name: string;
     class_id: string;
+    is_active: boolean;
     created_at: string;
     classes?: {
         id: string;
@@ -52,6 +53,7 @@ export const ChildService = {
                 first_name,
                 last_name,
                 class_id,
+                is_active,
                 created_at,
                 classes!inner(
                     id,
@@ -77,7 +79,7 @@ export const ChildService = {
         return (data as unknown as Child[]) || [];
     },
 
-    createChild: async (child: Omit<Child, 'id' | 'created_at' | 'classes' | 'child_allergens'>): Promise<Child> => {
+    createChild: async (child: Omit<Child, 'id' | 'created_at' | 'classes' | 'child_allergens' | 'is_active'>): Promise<Child> => {
         const { data, error } = await supabase
             .from('children')
             .insert([child])
@@ -102,6 +104,22 @@ export const ChildService = {
 
         if (error) {
             console.error('Error updating child:', error);
+            throw new Error(error.message);
+        }
+
+        return data;
+    },
+
+    setChildActive: async (id: string, isActive: boolean): Promise<Child> => {
+        const { data, error } = await supabase
+            .from('children')
+            .update({ is_active: isActive })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error setting child active state:', error);
             throw new Error(error.message);
         }
 

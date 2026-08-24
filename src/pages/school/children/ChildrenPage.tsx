@@ -6,10 +6,9 @@ import { AllergenService, type Allergen } from '../../../services/allergens.serv
 import { DataTable } from '../../../components/ui/data-table'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
-import { Plus, Search, Eye, Edit2, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Search, Eye, Edit2, Loader2, Power } from 'lucide-react'
 import { EditChildModal } from './components/EditChildModal'
 import { AddChildModal } from './components/AddChildModal'
-import { DeleteChildModal } from './components/DeleteChildModal'
 
 export default function ChildrenPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
@@ -18,7 +17,6 @@ export default function ChildrenPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [editingChild, setEditingChild] = useState<Child | null>(null)
-    const [deletingChild, setDeletingChild] = useState<Child | null>(null)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [classes, setClasses] = useState<Class[]>([])
     const [allergens, setAllergens] = useState<Allergen[]>([])
@@ -103,14 +101,17 @@ export default function ChildrenPage() {
         }
     }
 
-    const handleDeleteChild = async (id: string) => {
+    const handleToggleChild = async (child: Child) => {
         try {
             setIsSaving(true)
-            await ChildService.deleteChild(id)
-            setChildren(prev => prev.filter(c => c.id !== id))
-            setDeletingChild(null)
+            const updated = await ChildService.setChildActive(child.id, !child.is_active)
+            setChildren(prev => prev.map(current => current.id === updated.id
+                ? { ...current, is_active: updated.is_active }
+                : current
+            ))
         } catch (err) {
-            console.error('Error deleting child:', err)
+            console.error('Error changing child active state:', err)
+            setError('No se pudo cambiar el estado del niño')
         } finally {
             setIsSaving(false)
         }
@@ -146,6 +147,14 @@ export default function ChildrenPage() {
             }
         },
         {
+            header: 'Estado',
+            accessor: (child: Child) => (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${child.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+                    {child.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+            )
+        },
+        {
             header: 'Fecha de Alta',
             accessor: (child: Child) => (
                 <span className="text-xs text-gray-500">
@@ -172,10 +181,11 @@ export default function ChildrenPage() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-red-600"
-                        onClick={() => setDeletingChild(child)}
+                        className={`h-8 w-8 ${child.is_active ? 'text-gray-400 hover:text-red-600' : 'text-green-600 hover:text-green-700'}`}
+                        title={child.is_active ? 'Desactivar' : 'Activar'}
+                        onClick={() => handleToggleChild(child)}
                     >
-                        <Trash2 className="h-4 w-4" />
+                        <Power className="h-4 w-4" />
                     </Button>
                 </div>
             )
@@ -253,13 +263,6 @@ export default function ChildrenPage() {
                 onSave={handleCreateChild}
             />
 
-            <DeleteChildModal
-                isOpen={!!deletingChild}
-                onClose={() => setDeletingChild(null)}
-                child={deletingChild}
-                isLoading={isSaving}
-                onConfirm={handleDeleteChild}
-            />
         </div>
     )
 }
