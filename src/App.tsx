@@ -14,7 +14,7 @@ function ProtectedRoute() {
   const { isLoading, isAuthenticated } = useAuth()
 
   if (isLoading) {
-    return <div />
+    return <div role="status" aria-live="polite">Cargando...</div>
   }
 
   if (!isAuthenticated) {
@@ -28,7 +28,7 @@ function AdminRoute() {
   const { isLoading, isAdmin } = useAuth()
 
   if (isLoading) {
-    return <div />
+    return <div role="status" aria-live="polite">Cargando...</div>
   }
 
   if (!isAdmin) {
