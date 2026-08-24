@@ -255,12 +255,11 @@ export default function ClassesPage() {
                 </Button>
             </div>
 
-            {mutationError && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg" role="alert">{mutationError}</div>}
-
             <DataTable columns={columns} data={classes} emptyMessage="No hay aulas registradas para este colegio." />
 
             <Modal isOpen={isSchoolModalOpen} onClose={() => !isSchoolMutation && setIsSchoolModalOpen(false)} title="Editar colegio">
                 <form onSubmit={handleUpdateSchool} className="space-y-6">
+                    {mutationError && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg" role="alert">{mutationError}</div>}
                     <div className="space-y-2">
                         <Label htmlFor="school-name">Nombre del colegio</Label>
                         <Input id="school-name" value={schoolName} onChange={event => setSchoolName(event.target.value)} required autoFocus disabled={isSchoolMutation} />
@@ -276,6 +275,7 @@ export default function ClassesPage() {
 
             <Modal isOpen={isCreateModalOpen} onClose={() => !isCreateMutation && setIsCreateModalOpen(false)} title="Nueva aula">
                 <form onSubmit={handleCreateClass} className="space-y-6">
+                    {mutationError && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg" role="alert">{mutationError}</div>}
                     <div className="space-y-2">
                         <Label htmlFor="new-class-name">Nombre del aula</Label>
                         <Input id="new-class-name" value={newClassName} onChange={event => setNewClassName(event.target.value)} placeholder="Ej. Infantil 3 años" required autoFocus disabled={isCreateMutation} />
@@ -291,6 +291,7 @@ export default function ClassesPage() {
 
             <Modal isOpen={!!classToEdit} onClose={() => !isEditMutation && setClassToEdit(null)} title="Editar aula">
                 <form onSubmit={handleUpdateClass} className="space-y-6">
+                    {mutationError && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg" role="alert">{mutationError}</div>}
                     <div className="space-y-2">
                         <Label htmlFor="edit-class-name">Nombre del aula</Label>
                         <Input id="edit-class-name" value={editClassName} onChange={event => setEditClassName(event.target.value)} required autoFocus disabled={isEditMutation} />
@@ -310,6 +311,7 @@ export default function ClassesPage() {
                 title={classToToggle?.is_active ? 'Desactivar aula' : 'Activar aula'}
             >
                 <div className="space-y-4">
+                    {mutationError && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg" role="alert">{mutationError}</div>}
                     <p className="text-gray-600">
                         ¿Quieres {classToToggle?.is_active ? 'desactivar' : 'activar'} el aula <strong>{classToToggle?.name}</strong>?
                     </p>
