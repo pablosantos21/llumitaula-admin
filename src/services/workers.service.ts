@@ -1,53 +1,31 @@
 import { supabase } from '../lib/supabase';
 
-export type WorkerRole = 'worker' | 'monitor' | 'supervisor';
-
 export interface Worker {
     id: string;
     full_name: string;
-    role: WorkerRole;
-    active: boolean;
-    school_id: string;
-    worker_classrooms?: { class_id: string }[];
 }
-
-const roleOrMonitor = (role: unknown): WorkerRole =>
-    role === 'worker' || role === 'supervisor' || role === 'monitor' ? role : 'monitor';
 
 export const WorkerService = {
     getBySchool: async (schoolId: string): Promise<Worker[]> => {
         const { data, error } = await supabase
-            .from('users')
-            .select('id,full_name,role,active,school_id,worker_classrooms(class_id)')
-            .eq('school_id', schoolId)
-            .in('role', ['worker', 'monitor', 'supervisor'])
-            .order('full_name');
+            .from('monitors')
+            .select('id,first_name,last_name,monitors_schools!inner(school_id)')
+            .eq('monitors_schools.school_id', schoolId)
+            .order('first_name');
 
         if (error) throw new Error(error.message);
-        return (data || []).map(worker => ({
-            ...worker,
-            full_name: worker.full_name || 'Sin nombre',
-            role: roleOrMonitor(worker.role),
-            active: worker.active ?? true,
-        })) as Worker[];
+
+        return (data || []).map(m => ({
+            id: m.id,
+            full_name: `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Sin nombre',
+        }));
     },
 
-    update: async (id: string, updates: Pick<Worker, 'full_name' | 'role' | 'active'>): Promise<void> => {
-        const { error } = await supabase.from('users').update(updates).eq('id', id);
+    update: async (id: string, updates: Pick<Worker, 'full_name'>): Promise<void> => {
+        const parts = updates.full_name.trim().split(/\s+/);
+        const first_name = parts[0] || '';
+        const last_name = parts.slice(1).join(' ') || '';
+        const { error } = await supabase.from('monitors').update({ first_name, last_name }).eq('id', id);
         if (error) throw new Error(error.message);
-    },
-
-    setClassrooms: async (workerId: string, classIds: string[]): Promise<void> => {
-        const { error: deleteError } = await supabase
-            .from('worker_classrooms')
-            .delete()
-            .eq('worker_id', workerId);
-        if (deleteError) throw new Error(deleteError.message);
-
-        if (classIds.length === 0) return;
-        const { error: insertError } = await supabase
-            .from('worker_classrooms')
-            .insert(classIds.map(classId => ({ worker_id: workerId, class_id: classId })));
-        if (insertError) throw new Error(insertError.message);
     },
 };

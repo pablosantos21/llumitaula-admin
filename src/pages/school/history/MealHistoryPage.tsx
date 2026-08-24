@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, RotateCcw, Search } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { DataTable } from '../../../components/ui/data-table';
@@ -24,6 +24,8 @@ export default function MealHistoryPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const loadedRef = useRef(false);
+
     useEffect(() => {
         let current = true;
         const load = async () => {
@@ -34,18 +36,20 @@ export default function MealHistoryPage() {
             }
             try {
                 setIsLoading(true);
-                const [history, classData, childData, workerData] = await Promise.all([
+                const fetches: [Promise<MealHistoryRecord[]>, Promise<Class[]>, Promise<Child[]>, Promise<Worker[]>] = [
                     MealHistoryService.getBySchool(schoolId, filters),
-                    classes.length ? Promise.resolve(classes) : ClassService.getClassesBySchool(schoolId),
-                    children.length ? Promise.resolve(children) : ChildService.getChildrenBySchool(schoolId),
-                    workers.length ? Promise.resolve(workers) : WorkerService.getBySchool(schoolId),
-                ]);
+                    loadedRef.current ? Promise.resolve(classes) : ClassService.getClassesBySchool(schoolId),
+                    loadedRef.current ? Promise.resolve(children) : ChildService.getChildrenBySchool(schoolId),
+                    loadedRef.current ? Promise.resolve(workers) : WorkerService.getBySchool(schoolId),
+                ];
+                const [history, classData, childData, workerData] = await Promise.all(fetches);
                 if (current) {
                     setRecords(history);
                     setClasses(classData);
                     setChildren(childData);
                     setWorkers(workerData);
                     setError(null);
+                    loadedRef.current = true;
                 }
             } catch (err) {
                 console.error('Error loading meal history:', err);
@@ -56,7 +60,7 @@ export default function MealHistoryPage() {
         };
         void load();
         return () => { current = false; };
-    }, [schoolId, filters, classes, children, workers]);
+    }, [schoolId, filters]);
 
     const updateFilter = (key: keyof MealHistoryFilters, value: string) => {
         setFilters(current => ({ ...current, [key]: value || undefined }));
@@ -67,9 +71,9 @@ export default function MealHistoryPage() {
     const columns = [
         { header: 'Fecha', accessor: (record: MealHistoryRecord) => formatDate(record.meal_date) },
         { header: 'Tipo', accessor: (record: MealHistoryRecord) => <span className="capitalize">{record.meal_type}</span> },
-        { header: 'Niño', accessor: (record: MealHistoryRecord) => `${record.children.first_name} ${record.children.last_name}` },
-        { header: 'Aula', accessor: (record: MealHistoryRecord) => record.classes.name },
-        { header: 'Trabajador', accessor: (record: MealHistoryRecord) => record.worker?.full_name || 'Sin registrar' },
+        { header: 'Niño', accessor: (record: MealHistoryRecord) => `${record.child_first_name} ${record.child_last_name}` },
+        { header: 'Aula', accessor: (record: MealHistoryRecord) => record.class_name },
+        { header: 'Trabajador', accessor: (record: MealHistoryRecord) => record.monitor_first_name ? `${record.monitor_first_name} ${record.monitor_last_name}` : 'Sin registrar' },
         { header: 'Valoración', accessor: (record: MealHistoryRecord) => record.rating ? `${record.rating}/5` : 'Sin valorar' },
     ];
 

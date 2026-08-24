@@ -15,11 +15,13 @@ export interface MealHistoryRecord {
     meal_type: string;
     rating: number | null;
     class_id: string;
+    class_name: string;
     child_id: string;
+    child_first_name: string;
+    child_last_name: string;
     worker_id: string | null;
-    classes: { id: string; name: string };
-    children: { id: string; first_name: string; last_name: string };
-    worker: { id: string; full_name: string | null } | null;
+    monitor_first_name: string | null;
+    monitor_last_name: string | null;
 }
 
 export const MealHistoryService = {
@@ -32,11 +34,13 @@ export const MealHistoryService = {
                 meal_type,
                 rating,
                 class_id,
+                class_name,
                 child_id,
+                child_first_name,
+                child_last_name,
                 worker_id,
-                classes!inner(id, name),
-                children!inner(id, first_name, last_name),
-                worker:users!meal_history_worker_id_fkey(id, full_name)
+                monitor_first_name,
+                monitor_last_name
             `)
             .eq('school_id', schoolId)
             .order('meal_date', { ascending: false });
