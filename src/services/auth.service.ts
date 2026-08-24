@@ -33,12 +33,12 @@ export const AuthService = {
         }
 
         // Map Supabase user to our User interface
-        // We assume the role is stored in user metadata or default to monitor
+        // Read the role from trusted app metadata or default to monitor
         return {
             id: data.user.id,
             name: data.user.email?.split('@')[0] || 'User',
             email: data.user.email || '',
-            role: normalizeRole(data.user.user_metadata?.role),
+            role: normalizeRole(data.user.app_metadata?.role),
         };
     },
 
@@ -58,7 +58,7 @@ export const AuthService = {
             id: user.id,
             name: user.email?.split('@')[0] || 'User',
             email: user.email || '',
-            role: normalizeRole(user.user_metadata?.role),
+            role: normalizeRole(user.app_metadata?.role),
         };
     },
 
@@ -69,7 +69,7 @@ export const AuthService = {
                     id: session.user.id,
                     name: session.user.email?.split('@')[0] || 'User',
                     email: session.user.email || '',
-                    role: normalizeRole(session.user.user_metadata?.role),
+                    role: normalizeRole(session.user.app_metadata?.role),
                 });
             } else {
                 callback(null);
