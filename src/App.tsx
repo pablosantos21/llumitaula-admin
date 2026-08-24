@@ -20,6 +20,16 @@ function ProtectedRoute() {
   return <Outlet />
 }
 
+function AdminRoute() {
+  const { isAdmin } = useAuth()
+
+  if (!isAdmin) {
+    return <Navigate to="/select-school" replace />
+  }
+
+  return <Outlet />
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -31,13 +41,16 @@ function App() {
             <Route path="/" element={<Navigate to="/select-school" replace />} />
             <Route path="/select-school" element={<SelectSchoolPage />} />
             <Route path="/menus" element={<MenusPage />} />
-            <Route path="/menus/:menuId" element={<SpecialMenuPage />} />
 
-            <Route path="/school/:schoolId" element={<DashboardLayout />}>
-              <Route index element={<Navigate to="monitors" replace />} />
-              <Route path="monitors" element={<MonitorsPage />} />
-              <Route path="children" element={<ChildrenPage />} />
-              <Route path="incidences" element={<IncidentsPage />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/menus/:menuId" element={<SpecialMenuPage />} />
+
+              <Route path="/school/:schoolId" element={<DashboardLayout />}>
+                <Route index element={<Navigate to="monitors" replace />} />
+                <Route path="monitors" element={<MonitorsPage />} />
+                <Route path="children" element={<ChildrenPage />} />
+                <Route path="incidences" element={<IncidentsPage />} />
+              </Route>
             </Route>
           </Route>
         </Routes>
