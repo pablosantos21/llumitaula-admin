@@ -8,6 +8,7 @@ import SpecialMenuPage from './pages/menus/SpecialMenuPage'
 import MonitorsPage from './pages/school/monitors/MonitorsPage'
 import ChildrenPage from './pages/school/children/ChildrenPage'
 import IncidentsPage from './pages/school/incidents/IncidentsPage'
+import ClassesPage from './pages/school/classes/ClassesPage'
 
 // Protected Route Wrapper
 function ProtectedRoute() {
@@ -58,6 +59,7 @@ function App() {
                 <Route path="monitors" element={<MonitorsPage />} />
                 <Route path="children" element={<ChildrenPage />} />
                 <Route path="incidences" element={<IncidentsPage />} />
+                <Route path="classes" element={<ClassesPage />} />
               </Route>
             </Route>
           </Route>

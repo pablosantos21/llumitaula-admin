@@ -47,6 +47,7 @@ export default function DashboardLayout() {
         { name: 'Monitores', href: `/school/${schoolId}/monitors`, icon: Users },
         { name: 'Niños', href: `/school/${schoolId}/children`, icon: Baby },
         { name: 'Incidencias', href: `/school/${schoolId}/incidences`, icon: AlertTriangle },
+        { name: 'Aulas', href: `/school/${schoolId}/classes`, icon: SchoolIcon },
     ];
 
     const handleLogout = async () => {
