@@ -10,6 +10,12 @@ export interface Device {
     revoked_at: string | null;
 }
 
+export interface DeviceClaim {
+    id: string;
+    device_identifier: string;
+    claimed_at: string;
+}
+
 const deviceFields = 'id,school_id,name,active,last_seen_at,created_at,revoked_at';
 
 export const DeviceService = {
@@ -64,5 +70,12 @@ export const DeviceService = {
 
         if (error) throw new Error(error.message);
         return data;
+    },
+
+    getClaims: async (deviceId: string): Promise<DeviceClaim[]> => {
+        const { data, error } = await supabase.rpc('get_device_claims', { p_device_id: deviceId });
+
+        if (error) throw new Error(error.message);
+        return data || [];
     },
 };

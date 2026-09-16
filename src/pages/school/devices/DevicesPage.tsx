@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Copy, Edit2, KeyRound, Loader2, Plus, Smartphone, Ban } from 'lucide-react';
-import { DeviceService, type Device } from '../../../services/devices.service';
+import { Copy, Edit2, History, KeyRound, Loader2, Plus, Smartphone, Ban } from 'lucide-react';
+import { DeviceService, type Device, type DeviceClaim } from '../../../services/devices.service';
 import { DataTable } from '../../../components/ui/data-table';
 import { Modal } from '../../../components/ui/modal';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 
-type Mutation = 'create' | 'rename' | 'revoke' | 'code' | null;
+type Mutation = 'create' | 'rename' | 'revoke' | 'code' | 'history' | null;
 
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : 'Nunca';
 
@@ -25,6 +25,8 @@ export default function DevicesPage() {
     const [rename, setRename] = useState('');
     const [deviceToRevoke, setDeviceToRevoke] = useState<Device | null>(null);
     const [configCode, setConfigCode] = useState<string | null>(null);
+    const [claimDevice, setClaimDevice] = useState<Device | null>(null);
+    const [claims, setClaims] = useState<DeviceClaim[]>([]);
 
     useEffect(() => {
         let current = true;
@@ -109,11 +111,25 @@ export default function DevicesPage() {
         setMutation(null);
     };
 
+    const openHistory = async (device: Device) => {
+        setClaimDevice(device);
+        setClaims([]);
+        setError(null);
+        setMutation('history');
+        const result = await runMutation(() => DeviceService.getClaims(device.id), `No se pudo cargar el historial de ${device.name}.`);
+        if (result) {
+            setClaims(result);
+        } else {
+            setClaimDevice(null);
+        }
+        setMutation(null);
+    };
+
     const columns = [
         { header: 'Dispositivo', accessor: (device: Device) => <div className="flex items-center gap-3"><Smartphone className="h-5 w-5 text-indigo-600" /><span className="font-semibold text-gray-900">{device.name}</span></div> },
         { header: 'Estado', accessor: (device: Device) => <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${device.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>{device.active ? 'Activo' : 'Revocado'}</span> },
         { header: 'Última conexión', accessor: (device: Device) => <span>{formatDate(device.last_seen_at)}</span> },
-        { header: 'Acciones', className: 'text-right', accessor: (device: Device) => <div className="flex justify-end gap-2"><Button variant="ghost" size="icon" title="Renombrar" onClick={() => { setDeviceToRename(device); setRename(device.name); setError(null); }} disabled={mutation !== null}><Edit2 className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Generar código" onClick={() => void generateCode(device)} disabled={!device.active || mutation !== null}><KeyRound className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Revocar" onClick={() => { setDeviceToRevoke(device); setError(null); }} disabled={!device.active || mutation !== null}><Ban className="h-4 w-4 text-red-500" /></Button></div> },
+        { header: 'Acciones', className: 'text-right', accessor: (device: Device) => <div className="flex justify-end gap-2"><Button variant="ghost" size="icon" title="Renombrar" onClick={() => { setDeviceToRename(device); setRename(device.name); setError(null); }} disabled={mutation !== null}><Edit2 className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Regenerar código" onClick={() => void generateCode(device)} disabled={!device.active || mutation !== null}><KeyRound className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Ver historial" onClick={() => void openHistory(device)} disabled={mutation !== null}><History className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Revocar" onClick={() => { setDeviceToRevoke(device); setError(null); }} disabled={!device.active || mutation !== null}><Ban className="h-4 w-4 text-red-500" /></Button></div> },
     ];
 
     if (isLoading) return <div className="flex flex-col items-center justify-center p-12" role="status"><Loader2 className="mb-4 h-8 w-8 animate-spin text-indigo-600" /><p className="text-gray-500">Cargando dispositivos...</p></div>;
@@ -128,5 +144,6 @@ export default function DevicesPage() {
         <Modal isOpen={!!deviceToRename} onClose={() => mutation !== 'rename' && setDeviceToRename(null)} title="Renombrar dispositivo"><form onSubmit={renameDevice} className="space-y-6"><div className="space-y-2"><Label htmlFor="rename-device">Nombre</Label><Input id="rename-device" value={rename} onChange={event => setRename(event.target.value)} required disabled={mutation === 'rename'} autoFocus /></div><div className="flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => setDeviceToRename(null)} disabled={mutation === 'rename'}>Cancelar</Button><Button type="submit" disabled={mutation === 'rename' || !rename.trim()}>{mutation === 'rename' ? 'Guardando...' : 'Guardar cambios'}</Button></div></form></Modal>
         <Modal isOpen={!!deviceToRevoke} onClose={() => mutation !== 'revoke' && setDeviceToRevoke(null)} title="Revocar dispositivo"><div className="space-y-5"><p className="text-gray-600">¿Quieres revocar <strong>{deviceToRevoke?.name}</strong>? El dispositivo dejará de poder utilizarse.</p><div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setDeviceToRevoke(null)} disabled={mutation === 'revoke'}>Cancelar</Button><Button variant="danger" onClick={() => void revokeDevice()} disabled={mutation === 'revoke'}>{mutation === 'revoke' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Revocando...</> : 'Revocar dispositivo'}</Button></div></div></Modal>
         <Modal isOpen={!!configCode} onClose={() => setConfigCode(null)} title="Código de configuración"><div className="space-y-5"><div className="rounded-lg bg-gray-100 p-4 text-center font-mono text-lg tracking-wider">{configCode}</div><p className="text-sm text-gray-500">Guarda este código ahora. Por seguridad, no se volverá a mostrar.</p><div className="flex justify-end gap-3"><Button variant="outline" onClick={() => configCode && void navigator.clipboard?.writeText(configCode)}><Copy className="mr-2 h-4 w-4" />Copiar</Button><Button onClick={() => setConfigCode(null)}>Cerrar</Button></div></div></Modal>
+        <Modal isOpen={!!claimDevice} onClose={() => mutation !== 'history' && setClaimDevice(null)} title={`Historial de ${claimDevice?.name ?? ''}`}><div className="space-y-4">{mutation === 'history' ? <div className="flex flex-col items-center gap-2 py-6"><Loader2 className="h-6 w-6 animate-spin text-indigo-600" /><p className="text-sm text-gray-500">Cargando historial...</p></div> : claims.length === 0 ? <p className="rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-500">Todavía no hay vinculaciones registradas para este dispositivo.</p> : <ul className="divide-y divide-gray-100">{claims.map(claim => <li key={claim.id} className="flex items-center justify-between gap-4 py-3"><span className="text-sm font-medium text-gray-900">{claim.device_identifier}</span><span className="text-sm text-gray-500">{formatDate(claim.claimed_at)}</span></li>)}</ul>}<div className="flex justify-end"><Button variant="outline" onClick={() => setClaimDevice(null)} disabled={mutation === 'history'}>Cerrar</Button></div></div></Modal>
     </div>;
 }
