@@ -64,7 +64,7 @@ export default function DashboardLayout() {
             {/* Sidebar Desktop */}
             <aside className="hidden md:flex w-64 flex-col bg-white border-r border-gray-200 sticky top-0 h-screen">
                 <div className="p-6 flex items-center gap-2 border-b border-gray-100">
-                    <div className="bg-indigo-600 p-1.5 rounded-lg">
+                    <div className="bg-primary-600 p-1.5 rounded-lg">
                         <SchoolIcon className="h-5 w-5 text-white" />
                     </div>
                     {isLoading ? (
@@ -80,7 +80,7 @@ export default function DashboardLayout() {
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     <Link
                         to="/select-school"
-                        className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors mb-6"
+                        className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors mb-6"
                     >
                         <ChevronLeft className="h-4 w-4" />
                         Volver al panel
@@ -95,11 +95,11 @@ export default function DashboardLayout() {
                                 className={cn(
                                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                                     isActive
-                                        ? "bg-indigo-50 text-indigo-700"
+                                        ? "bg-primary-50 text-primary-700"
                                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 )}
                             >
-                                <item.icon className={cn("h-5 w-5", isActive ? "text-indigo-600" : "text-gray-400")} />
+                                <item.icon className={cn("h-5 w-5", isActive ? "text-primary-600" : "text-gray-400")} />
                                 {item.name}
                             </Link>
                         );
@@ -108,7 +108,7 @@ export default function DashboardLayout() {
 
                 <div className="p-4 border-t border-gray-100">
                     <div className="flex items-center gap-3 px-3 py-2">
-                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs">
                             {user?.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -140,7 +140,7 @@ export default function DashboardLayout() {
             )}>
                 <div className="p-6 flex items-center justify-between border-b border-gray-100">
                     <div className="flex items-center gap-2">
-                        <Utensils className="h-6 w-6 text-indigo-600" />
+                        <Utensils className="h-6 w-6 text-primary-600" />
                         <span className="font-bold text-gray-900">Admin</span>
                     </div>
                     <button onClick={() => setIsMobileMenuOpen(false)}>
@@ -159,11 +159,11 @@ export default function DashboardLayout() {
                                 className={cn(
                                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                                     isActive
-                                        ? "bg-indigo-50 text-indigo-700"
+                                        ? "bg-primary-50 text-primary-700"
                                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 )}
                             >
-                                <item.icon className={cn("h-5 w-5", isActive ? "text-indigo-600" : "text-gray-400")} />
+                                <item.icon className={cn("h-5 w-5", isActive ? "text-primary-600" : "text-gray-400")} />
                                 {item.name}
                             </Link>
                         );

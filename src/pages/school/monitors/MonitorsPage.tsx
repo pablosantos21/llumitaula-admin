@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { MonitorService, type Monitor } from '../../../services/monitors.service'
 import { DataTable } from '../../../components/ui/data-table'
@@ -7,6 +7,8 @@ import { Plus, Edit2, UserMinus, Loader2 } from 'lucide-react'
 import { Modal } from '../../../components/ui/modal'
 import { Input } from '../../../components/ui/input'
 import { Label } from '../../../components/ui/label'
+
+const CODE_PATTERN = /^\d{3,4}$/
 
 export default function MonitorsPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
@@ -20,6 +22,7 @@ export default function MonitorsPage() {
     const [newFirstName, setNewFirstName] = useState('')
     const [newLastName, setNewLastName] = useState('')
     const [newCode, setNewCode] = useState('')
+    const [formError, setFormError] = useState<string | null>(null)
 
     // Delete modal state
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -31,49 +34,57 @@ export default function MonitorsPage() {
     const [monitorToEdit, setMonitorToEdit] = useState<Monitor | null>(null)
     const [editFirstName, setEditFirstName] = useState('')
     const [editLastName, setEditLastName] = useState('')
-    const [editCode, setEditCode] = useState('')
+
+    const loadMonitors = useCallback(async () => {
+        if (!schoolId) return
+
+        try {
+            setIsLoading(true)
+            const data = await MonitorService.getMonitorsBySchool(schoolId)
+            setMonitors(data)
+        } catch (err) {
+            console.error('Error loading monitors:', err)
+            setError('No se pudieron cargar los monitores')
+        } finally {
+            setIsLoading(false)
+        }
+    }, [schoolId])
 
     useEffect(() => {
-        const fetchMonitors = async () => {
-            if (!schoolId) return
-
-            try {
-                setIsLoading(true)
-                const data = await MonitorService.getMonitorsBySchool(schoolId)
-                setMonitors(data)
-            } catch (err) {
-                console.error('Error loading monitors:', err)
-                setError('No se pudieron cargar los monitores')
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        fetchMonitors()
-    }, [schoolId])
+        loadMonitors()
+    }, [loadMonitors])
 
     const handleCreateMonitor = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!schoolId || !newFirstName.trim() || !newLastName.trim() || !newCode.trim()) return
 
+        if (!CODE_PATTERN.test(newCode.trim())) {
+            setFormError('El código debe tener entre 3 y 4 dígitos numéricos.')
+            return
+        }
+
         try {
             setIsSubmitting(true)
-            const newMonitor = await MonitorService.createMonitor(
+            await MonitorService.createMonitor(
                 {
                     first_name: newFirstName,
                     last_name: newLastName,
-                    code: newCode
+                    code: newCode.trim()
                 },
                 schoolId
             )
-            setMonitors(prev => [...prev, newMonitor].sort((a, b) => a.first_name.localeCompare(b.first_name)))
             setIsModalOpen(false)
             setNewFirstName('')
             setNewLastName('')
             setNewCode('')
+            await loadMonitors()
         } catch (err) {
             console.error('Error creating monitor:', err)
-            // Error handling could be improved with a toast
+            if ((err as { code?: string }).code === '23505') {
+                setFormError('Ese código ya está en uso en esta escuela.')
+            } else {
+                setFormError('No se pudo crear el monitor. Inténtalo de nuevo.')
+            }
         } finally {
             setIsSubmitting(false)
         }
@@ -101,24 +112,21 @@ export default function MonitorsPage() {
     }
 
     const startEdit = (monitor: Monitor) => {
-        console.log(monitor)
         setMonitorToEdit(monitor)
         setEditFirstName(monitor.first_name)
         setEditLastName(monitor.last_name)
-        setEditCode(String(monitor.code))
         setIsEditModalOpen(true)
     }
 
     const handleUpdateMonitor = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!monitorToEdit || !editFirstName.trim() || !editLastName.trim() || !editCode.trim()) return
+        if (!monitorToEdit || !editFirstName.trim() || !editLastName.trim()) return
 
         try {
             setIsSubmitting(true)
             const updatedMonitor = await MonitorService.updateMonitor(monitorToEdit.id, {
                 first_name: editFirstName,
-                last_name: editLastName,
-                code: editCode
+                last_name: editLastName
             })
             setMonitors(prev => prev.map(m => m.id === updatedMonitor.id ? updatedMonitor : m).sort((a, b) => a.first_name.localeCompare(b.first_name)))
             setIsEditModalOpen(false)
@@ -135,7 +143,7 @@ export default function MonitorsPage() {
             header: 'Monitor',
             accessor: (monitor: Monitor) => (
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
+                    <div className="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 font-bold border border-primary-100">
                         {monitor.first_name.charAt(0)}
                     </div>
                     <div>
@@ -148,7 +156,7 @@ export default function MonitorsPage() {
         {
             header: 'Código Acceso',
             accessor: (monitor: Monitor) => (
-                <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-indigo-600">
+                <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-primary-600">
                     {monitor.code}
                 </code>
             )
@@ -184,7 +192,7 @@ export default function MonitorsPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" />
+                <Loader2 className="h-8 w-8 text-primary-600 animate-spin mb-4" />
                 <p className="text-gray-500">Cargando monitores...</p>
             </div>
         )
@@ -218,7 +226,10 @@ export default function MonitorsPage() {
 
             <Modal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false)
+                    setFormError(null)
+                }}
                 title="Añadir nuevo monitor"
             >
                 <form onSubmit={handleCreateMonitor} className="space-y-6">
@@ -246,16 +257,29 @@ export default function MonitorsPage() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="code">Código de Acceso</Label>
+                        <Label htmlFor="code">Código de Acceso (PIN)</Label>
                         <Input
                             id="code"
                             value={newCode}
-                            onChange={(e) => setNewCode(e.target.value)}
+                            onChange={(e) => {
+                                setNewCode(e.target.value.replace(/\D/g, '').slice(0, 4))
+                                setFormError(null)
+                            }}
                             placeholder="Ej. 1234"
+                            inputMode="numeric"
+                            maxLength={4}
+                            autoComplete="off"
                             required
                         />
-                        <p className="text-xs text-gray-500">Este código será el que use el monitor para entrar a su panel.</p>
+                        <p className="text-xs text-gray-500">
+                            PIN de 3-4 dígitos. Será la contraseña que el monitor usará para entrar a su panel.
+                        </p>
                     </div>
+                    {formError && (
+                        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                            {formError}
+                        </p>
+                    )}
                     <div className="flex justify-end gap-3 mt-8">
                         <Button
                             type="button"
@@ -268,7 +292,7 @@ export default function MonitorsPage() {
                         <Button
                             type="submit"
                             disabled={isSubmitting || !newFirstName.trim() || !newLastName.trim() || !newCode.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            className="bg-primary-600 hover:bg-primary-700 text-white"
                         >
                             {isSubmitting ? (
                                 <>
@@ -350,17 +374,9 @@ export default function MonitorsPage() {
                             />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-code">Código de Acceso</Label>
-                        <Input
-                            id="edit-code"
-                            value={editCode}
-                            onChange={(e) => setEditCode(e.target.value)}
-                            placeholder="Ej. 1234"
-                            required
-                        />
-                        <p className="text-xs text-gray-500">Este código será el que use el monitor para entrar a su panel.</p>
-                    </div>
+                    <p className="text-xs text-gray-500">
+                        El código de acceso no se puede modificar. Si el monitor ha olvidado su PIN, contacta con soporte para restablecerlo.
+                    </p>
                     <div className="flex justify-end gap-3 mt-8">
                         <Button
                             type="button"
@@ -372,8 +388,8 @@ export default function MonitorsPage() {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={isSubmitting || !editFirstName.trim() || !editLastName.trim() || !editCode.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            disabled={isSubmitting || !editFirstName.trim() || !editLastName.trim()}
+                            className="bg-primary-600 hover:bg-primary-700 text-white"
                         >
                             {isSubmitting ? (
                                 <>

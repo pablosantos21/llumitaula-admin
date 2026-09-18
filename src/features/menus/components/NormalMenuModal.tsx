@@ -84,7 +84,7 @@ export const NormalMenuModal = ({
                                     className={cn(
                                         "flex items-center gap-3 p-3 rounded-lg border text-left transition-all",
                                         isSelected
-                                            ? "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm"
+                                            ? "border-primary-200 bg-primary-50 text-primary-700 shadow-sm"
                                             : isAlreadyAssigned
                                                 ? "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
                                                 : "border-gray-200 hover:border-gray-300 text-gray-600"
@@ -92,7 +92,7 @@ export const NormalMenuModal = ({
                                 >
                                     <div className={cn(
                                         "h-4 w-4 rounded border flex items-center justify-center transition-all",
-                                        isSelected ? "bg-indigo-600 border-indigo-600" : "border-gray-300",
+                                        isSelected ? "bg-primary-600 border-primary-600" : "border-gray-300",
                                         isAlreadyAssigned && "bg-gray-200 border-gray-200"
                                     )}>
                                         {isSelected && <Check className="h-3 w-3 text-white" />}

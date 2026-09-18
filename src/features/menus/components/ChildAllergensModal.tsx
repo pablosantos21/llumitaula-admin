@@ -80,7 +80,7 @@ const ChildAllergensForm = ({ child, onClose, onSaved }: Omit<ChildAllergensModa
             <div className="space-y-2">
                 {isLoading ? (
                     <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                        <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
                     </div>
                 ) : allergens.length === 0 ? (
                     <p className="text-sm text-gray-400">No hay alérgenos registrados</p>

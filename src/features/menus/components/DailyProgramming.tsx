@@ -22,8 +22,8 @@ export const DailyProgramming = ({
         <div className="space-y-6">
             <div className="flex items-center justify-between bg-white px-6 py-4 rounded-xl border border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <div className="bg-indigo-100 p-2 rounded-lg">
-                        <Utensils className="h-5 w-5 text-indigo-600" />
+                    <div className="bg-primary-100 p-2 rounded-lg">
+                        <Utensils className="h-5 w-5 text-primary-600" />
                     </div>
                     <div>
                         <h2 className="text-lg font-bold text-gray-900">Programación del día</h2>
@@ -35,14 +35,14 @@ export const DailyProgramming = ({
                         </p>
                     </div>
                 </div>
-                {isLoading && <Loader2 className="h-5 w-5 text-indigo-500 animate-spin" />}
+                {isLoading && <Loader2 className="h-5 w-5 text-primary-500 animate-spin" />}
             </div>
 
             {selectedDate ? (
                 <div className="space-y-4">
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100">
-                            <Loader2 className="h-10 w-10 text-indigo-200 animate-spin mb-4" />
+                            <Loader2 className="h-10 w-10 text-primary-200 animate-spin mb-4" />
                             <p className="text-gray-400 font-medium">Cargando menús...</p>
                         </div>
                     ) : (
@@ -78,7 +78,7 @@ export const DailyProgramming = ({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full py-6 border-dashed border-2 hover:border-indigo-300 hover:bg-indigo-50/30 text-indigo-600 transition-all gap-2"
+                                className="w-full py-6 border-dashed border-2 hover:border-primary-300 hover:bg-primary-50/30 text-primary-600 transition-all gap-2"
                                 onClick={() => openNormalMenuModal()}
                             >
                                 <Plus className="h-4 w-4" />

@@ -65,6 +65,15 @@ export const DeviceService = {
         return data;
     },
 
+    remove: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('devices')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw new Error(error.message);
+    },
+
     generateConfigCode: async (id: string): Promise<string> => {
         const { data, error } = await supabase.rpc('generate_device_config_code', { p_device_id: id });
 

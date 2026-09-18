@@ -35,7 +35,7 @@ export default function SpecialMenuPage() {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-10 w-10 text-indigo-500 animate-spin" />
+                    <Loader2 className="h-10 w-10 text-primary-500 animate-spin" />
                     <p className="text-gray-500 font-medium">Cargando menús especiales...</p>
                 </div>
             </div>
@@ -114,7 +114,7 @@ export default function SpecialMenuPage() {
                                             <th className="p-3 border-b text-left bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-wider sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                                 Plato
                                             </th>
-                                            <th className="p-3 border-b text-center bg-indigo-50 text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                                            <th className="p-3 border-b text-center bg-primary-50 text-xs font-bold text-primary-600 uppercase tracking-wider">
                                                 Menú Base
                                             </th>
                                             {allergenGroups.map(group => (
@@ -135,7 +135,7 @@ export default function SpecialMenuPage() {
                                                 <td className="p-3 border-b text-sm font-bold text-gray-700 bg-white sticky left-0 z-10 w-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">
                                                     {row.label}
                                                 </td>
-                                                <td className="p-3 border-b text-sm text-gray-400 italic bg-indigo-50/30 text-center">
+                                                <td className="p-3 border-b text-sm text-gray-400 italic bg-primary-50/30 text-center">
                                                     {menu[row.field] || '-'}
                                                 </td>
                                                 {allergenGroups.map(group => (
@@ -159,7 +159,7 @@ export default function SpecialMenuPage() {
                             <Button variant="outline" className="flex-1" onClick={() => navigate('/menus')}>
                                 Cancelar
                             </Button>
-                            <Button className="flex-1 gap-2 shadow-lg shadow-indigo-100" onClick={handleSaveClick} disabled={isSaving}>
+                            <Button className="flex-1 gap-2 shadow-lg shadow-primary-100" onClick={handleSaveClick} disabled={isSaving}>
                                 <Save className="h-4 w-4" />
                                 {isSaving ? 'Guardando...' : 'Guardar Menús Especiales'}
                             </Button>

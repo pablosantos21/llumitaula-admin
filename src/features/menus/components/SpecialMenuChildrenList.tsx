@@ -53,7 +53,7 @@ export const SpecialMenuChildrenList = () => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
             </div>
         );
     }

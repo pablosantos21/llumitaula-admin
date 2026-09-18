@@ -138,7 +138,7 @@ export default function ChildrenPage() {
             header: 'Nombre',
             accessor: (child: Child) => (
                 <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                    <div className="h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center text-primary-700 font-bold text-xs">
                         {child.first_name[0]}{child.last_name[0]}
                     </div>
                     <span className="font-semibold text-gray-900">{child.first_name} {child.last_name}</span>
@@ -183,13 +183,13 @@ export default function ChildrenPage() {
             className: 'text-right',
             accessor: (child: Child) => (
                 <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 hover:bg-indigo-50">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-600 hover:bg-primary-50">
                         <Eye className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-gray-500 hover:text-indigo-600"
+                        className="h-8 w-8 text-gray-500 hover:text-primary-600"
                         onClick={() => setEditingChild(child)}
                     >
                         <Edit2 className="h-4 w-4" />
@@ -212,7 +212,7 @@ export default function ChildrenPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" />
+                <Loader2 className="h-8 w-8 text-primary-600 animate-spin mb-4" />
                 <p className="text-gray-500">Cargando alumnos...</p>
             </div>
         )

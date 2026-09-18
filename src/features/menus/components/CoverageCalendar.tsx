@@ -51,7 +51,7 @@ export const CoverageCalendar = ({
             <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Estado de Cobertura</h2>
-                    {isLoading && <Loader2 className="h-4 w-4 text-indigo-500 animate-spin" />}
+                    {isLoading && <Loader2 className="h-4 w-4 text-primary-500 animate-spin" />}
                 </div>
                 <div className="flex gap-4 text-[10px] items-center">
                     <div className="flex items-center gap-1.5">

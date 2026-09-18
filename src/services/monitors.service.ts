@@ -8,6 +8,13 @@ export interface Monitor {
     created_at: string;
 }
 
+export interface CreateMonitorResult {
+    ok: boolean;
+    monitor_id: string;
+    user_id: string;
+    email: string;
+}
+
 export const MonitorService = {
     getMonitorsBySchool: async (schoolId: string): Promise<Monitor[]> => {
         const { data, error } = await supabase
@@ -32,30 +39,23 @@ export const MonitorService = {
         return data || [];
     },
 
-    createMonitor: async (monitor: Omit<Monitor, 'id' | 'created_at'>, schoolId: string): Promise<Monitor> => {
-        // First create the monitor
-        const { data: newMonitor, error: monitorError } = await supabase
-            .from('monitors')
-            .insert([monitor])
-            .select()
-            .single();
+    createMonitor: async (monitor: Pick<Monitor, 'first_name' | 'last_name' | 'code'>, schoolId: string): Promise<CreateMonitorResult> => {
+        // The create_monitor RPC creates the auth user (email monitor.{code}@llumitaula.local
+        // with the code as password), the public.users row with role 'monitor',
+        // the monitors row and the link in monitors_schools.
+        const { data, error } = await supabase.rpc('create_monitor', {
+            p_first_name: monitor.first_name.trim(),
+            p_last_name: monitor.last_name.trim(),
+            p_code: Number(monitor.code),
+            p_school_id: schoolId,
+        });
 
-        if (monitorError) {
-            console.error('Error creating monitor:', monitorError);
-            throw new Error(monitorError.message);
+        if (error) {
+            console.error('Error creating monitor:', error);
+            throw error;
         }
 
-        // Then link it to the school
-        const { error: junctionError } = await supabase
-            .from('monitors_schools')
-            .insert([{ monitor_id: newMonitor.id, school_id: schoolId }]);
-
-        if (junctionError) {
-            console.error('Error linking monitor to school:', junctionError);
-            throw new Error(junctionError.message);
-        }
-
-        return newMonitor;
+        return data as CreateMonitorResult;
     },
 
     updateMonitor: async (id: string, updates: Partial<Monitor>): Promise<Monitor> => {

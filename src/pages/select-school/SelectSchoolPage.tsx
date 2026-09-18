@@ -92,11 +92,11 @@ export default function SelectSchoolPage() {
             <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <SchoolIcon className="h-6 w-6 text-indigo-600" />
+                        <SchoolIcon className="h-6 w-6 text-primary-600" />
                         <h1 className="text-xl font-bold text-gray-900">Catering Admin</h1>
                     </div>
                     <div className="h-6 w-px bg-gray-200" />
-                    <Button variant="ghost" size="sm" onClick={() => navigate('/menus')} className="text-gray-600 hover:text-indigo-600 hover:bg-indigo-50">
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/menus')} className="text-gray-600 hover:text-primary-600 hover:bg-primary-50">
                         <Utensils className="h-4 w-4 mr-2" />
                         Gestionar Menús
                     </Button>
@@ -118,7 +118,7 @@ export default function SelectSchoolPage() {
 
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center p-12">
-                        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" />
+                        <Loader2 className="h-8 w-8 text-primary-600 animate-spin mb-4" />
                         <p className="text-gray-500">Cargando colegios...</p>
                     </div>
                 ) : error ? (
@@ -130,12 +130,12 @@ export default function SelectSchoolPage() {
                         {schools.map((school) => (
                             <Card
                                 key={school.id}
-                                className="cursor-pointer hover:shadow-sm transition-all group border-gray-200 hover:border-indigo-500 hover:bg-indigo-50/30"
+                                className="cursor-pointer hover:shadow-sm transition-all group border-gray-200 hover:border-primary-500 hover:bg-primary-50/30"
                                 onClick={() => handleSchoolSelect(school.id)}
                             >
                                 <CardContent className="p-6 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                        <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600 group-hover:bg-primary-600 group-hover:text-white transition-colors">
                                             <SchoolIcon className="h-6 w-6" />
                                         </div>
                                         <div>
@@ -152,7 +152,7 @@ export default function SelectSchoolPage() {
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-600">
+                                        <Button variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity text-primary-600">
                                             Seleccionar
                                         </Button>
                                     </div>
@@ -168,10 +168,10 @@ export default function SelectSchoolPage() {
 
                         <Button
                             variant="outline"
-                            className="p-8 border-dashed border-2 hover:border-indigo-500 hover:bg-indigo-50/30 flex flex-col h-auto gap-2"
+                            className="p-8 border-dashed border-2 hover:border-primary-500 hover:bg-primary-50/30 flex flex-col h-auto gap-2"
                             onClick={() => setIsModalOpen(true)}
                         >
-                            <Plus className="h-6 w-6 text-indigo-600" />
+                            <Plus className="h-6 w-6 text-primary-600" />
                             <span className="font-semibold text-gray-900">Añadir nuevo colegio</span>
                         </Button>
                     </div>
@@ -206,7 +206,7 @@ export default function SelectSchoolPage() {
                             <Button
                                 type="submit"
                                 disabled={isCreating || !newSchoolName.trim()}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                className="bg-primary-600 hover:bg-primary-700 text-white"
                             >
                                 {isCreating ? (
                                     <>

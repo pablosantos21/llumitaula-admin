@@ -60,7 +60,7 @@ export default function IncidentsPage() {
             className: 'text-right',
             accessor: () => (
                 <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" className="text-indigo-600">
+                    <Button variant="ghost" size="sm" className="text-primary-600">
                         Ver detalle
                     </Button>
                 </div>
@@ -71,7 +71,7 @@ export default function IncidentsPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" />
+                <Loader2 className="h-8 w-8 text-primary-600 animate-spin mb-4" />
                 <p className="text-gray-500">Cargando incidencias...</p>
             </div>
         )

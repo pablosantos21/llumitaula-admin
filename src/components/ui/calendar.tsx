@@ -97,17 +97,17 @@ export function Calendar({ onDateClick, highlightedDates, renderDay, currentMont
                                     className={cn(
                                         "w-full h-full rounded-lg flex flex-col items-center justify-center transition-all relative group p-1",
                                         isSelected(date)
-                                            ? "bg-indigo-100 text-gray-700 shadow-md shadow-indigo-100"
+                                            ? "bg-primary-100 text-gray-700 shadow-md shadow-primary-100"
                                             : "hover:bg-gray-50 text-gray-700",
-                                        highlightedDates?.has(formatDate(date)) && !isSelected(date) && "font-bold text-indigo-600"
+                                        highlightedDates?.has(formatDate(date)) && !isSelected(date) && "font-bold text-primary-600"
                                     )}
                                 >
                                     <span className={cn("text-sm", isSelected(date) ? "font-bold" : "")}>{date.getDate()}</span>
                                     {renderDay && renderDay(date)}
                                     {!renderDay && highlightedDates?.has(formatDate(date)) && !isSelected(date) && (
-                                        <div className="absolute bottom-2 w-1 h-1 bg-indigo-600 rounded-full" />
+                                        <div className="absolute bottom-2 w-1 h-1 bg-primary-600 rounded-full" />
                                     )}
-                                    <div className="absolute inset-0 border-2 border-transparent group-hover:border-indigo-100 rounded-lg pointer-events-none" />
+                                    <div className="absolute inset-0 border-2 border-transparent group-hover:border-primary-100 rounded-lg pointer-events-none" />
                                 </button>
                             ) : (
                                 <div className="w-full h-full" />

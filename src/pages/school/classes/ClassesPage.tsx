@@ -173,7 +173,7 @@ export default function ClassesPage() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"
+                        className="h-8 w-8 text-primary-600 hover:bg-primary-50"
                         title="Editar aula"
                         aria-label={`Editar aula ${classItem.name}`}
                         onClick={() => openEditClass(classItem)}
@@ -184,7 +184,7 @@ export default function ClassesPage() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-gray-500 hover:text-indigo-600"
+                        className="h-8 w-8 text-gray-500 hover:text-primary-600"
                         title={classItem.is_active ? 'Desactivar aula' : 'Activar aula'}
                         aria-label={`${classItem.is_active ? 'Desactivar' : 'Activar'} aula ${classItem.name}`}
                         onClick={() => {
@@ -203,7 +203,7 @@ export default function ClassesPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-12" role="status" aria-live="polite">
-                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mb-4" aria-hidden="true" />
+                <Loader2 className="h-8 w-8 text-primary-600 animate-spin mb-4" aria-hidden="true" />
                 <p className="text-gray-500">Cargando colegio y aulas...</p>
             </div>
         )
@@ -227,7 +227,7 @@ export default function ClassesPage() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-indigo-600"
+                            className="h-8 w-8 text-gray-500 hover:text-primary-600"
                             title="Editar nombre del colegio"
                             aria-label="Editar nombre del colegio"
                             onClick={() => {
