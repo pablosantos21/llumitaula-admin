@@ -245,6 +245,8 @@ export const ChildService = {
         first_name: string;
         last_name: string;
         allergens: { id: string; name: string }[];
+        className?: string;
+        schoolName?: string;
     }[]> => {
         const { data, error } = await supabase
             .from('children')
@@ -255,7 +257,12 @@ export const ChildService = {
                 class_id,
                 classes!inner(
                     id,
-                    school_id
+                    name,
+                    school_id,
+                    schools (
+                        id,
+                        name
+                    )
                 ),
                 child_allergens(
                     allergen_id,
@@ -278,7 +285,9 @@ export const ChildService = {
             id: c.id,
             first_name: c.first_name,
             last_name: c.last_name,
-            allergens: (c.child_allergens || []).map((ca: any) => ca.allergens)
+            allergens: (c.child_allergens || []).map((ca: any) => ca.allergens),
+            className: c.classes?.name,
+            schoolName: c.classes?.schools?.name
         }));
     },
 };

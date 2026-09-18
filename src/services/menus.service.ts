@@ -214,6 +214,64 @@ export const MenuService = {
         };
     },
 
+    getSpecialMenusForDate: async (date: string, schoolIds: string[]): Promise<{
+        id: string;
+        type: string;
+        first_course: string;
+        second_course: string;
+        side: string;
+        salad: string;
+        dessert: string;
+    }[]> => {
+        if (schoolIds.length === 0) return [];
+
+        const { data: assignments, error } = await supabase
+            .from('menus_schools')
+            .select('menu_id, school_id')
+            .eq('date', date)
+            .in('school_id', schoolIds);
+
+        if (error) {
+            console.error('Error fetching menu assignments:', error);
+            throw new Error(error.message);
+        }
+
+        const menuIds = Array.from(new Set((assignments || []).map((a: any) => a.menu_id)));
+        if (menuIds.length === 0) return [];
+
+        const { data, error: menusError } = await supabase
+            .from('menus')
+            .select('*')
+            .in('id', menuIds)
+            .neq('type', 'normal');
+
+        if (menusError) {
+            console.error('Error fetching special menus:', menusError);
+            throw new Error(menusError.message);
+        }
+
+        const schoolKey = [...schoolIds].sort().join('|');
+
+        return (data || [])
+            .filter((m: any) => {
+                const assigned = (assignments || [])
+                    .filter((a: any) => a.menu_id === m.id)
+                    .map((a: any) => a.school_id)
+                    .sort()
+                    .join('|');
+                return assigned === schoolKey;
+            })
+            .map((m: any) => ({
+                id: m.id,
+                type: m.type,
+                first_course: m.first_course || m.primero,
+                second_course: m.second_course || m.segundo,
+                side: m.side || m.guarnicion,
+                salad: m.salad || m.ensalada,
+                dessert: m.dessert || m.postre,
+            }));
+    },
+
     deleteSpecialMenus: async (menuId: string): Promise<void> => {
         const { data: assignments, error: fetchError } = await supabase
             .from('menus_schools')

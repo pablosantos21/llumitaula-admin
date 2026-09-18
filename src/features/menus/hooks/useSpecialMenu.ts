@@ -89,6 +89,19 @@ export const useSpecialMenu = (menuId: string) => {
                 groups.forEach(group => {
                     initialMatrix[group.name] = { ...base }
                 })
+
+                const savedSpecials = await MenuService.getSpecialMenusForDate(menuData.date, schoolIds)
+                savedSpecials.forEach(saved => {
+                    if (!initialMatrix[saved.type]) return
+                    initialMatrix[saved.type] = {
+                        first_course: saved.first_course || '',
+                        second_course: saved.second_course || '',
+                        side: saved.side || '',
+                        salad: saved.salad || '',
+                        dessert: saved.dessert || ''
+                    }
+                })
+
                 setMatrixData(initialMatrix)
             } catch (err) {
                 console.error('Error loading special menu data:', err)
