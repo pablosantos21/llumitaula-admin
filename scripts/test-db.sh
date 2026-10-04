@@ -50,6 +50,7 @@ echo "Using scratch database:   $DATABASE"
 MIGRATIONS=(
   "20260916110000_device_config_code_six_characters.sql"
   "20260916120000_device_claim_history.sql"
+  "20261004120000_school_capabilities.sql"
 )
 
 for name in "${MIGRATIONS[@]}"; do
