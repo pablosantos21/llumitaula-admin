@@ -84,6 +84,16 @@ CREATE POLICY classes_select_assigned_supervisors ON public.classes
   FOR SELECT TO authenticated
   USING (public.current_user_can_manage_school_capabilities(school_id));
 
+-- The management page loads its school row before requesting capability
+-- settings. Add this narrowly scoped path without changing existing school
+-- SELECT policies (including the admin policy).
+CREATE POLICY schools_select_assigned_capability_supervisors ON public.schools
+  FOR SELECT TO authenticated
+  USING (
+    public.current_user_role() = 'supervisor'
+    AND public.current_user_can_manage_school_capabilities(id)
+  );
+
 CREATE OR REPLACE FUNCTION public.get_school_supervisor_assignments(p_school_id uuid)
 RETURNS TABLE (
   supervisor_id uuid,
@@ -234,7 +244,8 @@ BEGIN
   END IF;
 
   IF p_child_id IS NOT NULL THEN
-    IF v_role IS DISTINCT FROM 'parent'
+    IF v_role IS NULL
+       OR v_role NOT IN ('parent', 'padre')
        OR NOT private.current_user_can_access_child(p_child_id) THEN
       RAISE EXCEPTION 'Child not found or not accessible'
         USING ERRCODE = '42501';
@@ -321,13 +332,15 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.set_class_capability(
+-- Shared validation and scope resolution for class-level capability writes.
+-- This helper is callable only through the SECURITY DEFINER mutation RPCs.
+CREATE OR REPLACE FUNCTION private.assert_class_capability_scope(
   p_class_id uuid,
-  p_capability text,
-  p_enabled boolean
+  p_capability text
 )
 RETURNS void
 LANGUAGE plpgsql
+STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
@@ -351,6 +364,23 @@ BEGIN
     RAISE EXCEPTION 'Class not found or not accessible'
       USING ERRCODE = '42501';
   END IF;
+END;
+$function$;
+REVOKE ALL ON FUNCTION private.assert_class_capability_scope(uuid, text)
+  FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.set_class_capability(
+  p_class_id uuid,
+  p_capability text,
+  p_enabled boolean
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  PERFORM private.assert_class_capability_scope(p_class_id, p_capability);
 
   INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
   VALUES (p_class_id, p_capability, p_enabled)
@@ -368,26 +398,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
-DECLARE
-  v_school_id uuid;
 BEGIN
-  IF p_capability IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.capability_catalog c WHERE c.capability = p_capability
-  ) THEN
-    RAISE EXCEPTION 'Unknown capability: %', p_capability
-      USING ERRCODE = '22023';
-  END IF;
-
-  SELECT c.school_id
-    INTO v_school_id
-    FROM public.classes c
-   WHERE c.id = p_class_id;
-
-  IF v_school_id IS NULL
-     OR NOT public.current_user_can_manage_school_capabilities(v_school_id) THEN
-    RAISE EXCEPTION 'Class not found or not accessible'
-      USING ERRCODE = '42501';
-  END IF;
+  PERFORM private.assert_class_capability_scope(p_class_id, p_capability);
 
   DELETE FROM public.class_capability_overrides o
    WHERE o.class_id = p_class_id

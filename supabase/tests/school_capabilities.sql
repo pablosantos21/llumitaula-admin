@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(72);
+SELECT plan(80);
 
 SET LOCAL ROLE postgres;
 
@@ -22,7 +22,8 @@ INSERT INTO public.users (id, role, full_name, active) VALUES
   ('00000000-0000-4000-8000-000000000105'::uuid, 'parent', 'Parent B', true),
   ('00000000-0000-4000-8000-000000000106'::uuid, 'monitor', 'Monitor A', true),
   ('00000000-0000-4000-8000-000000000107'::uuid, 'monitor', 'Monitor B', true),
-  ('00000000-0000-4000-8000-000000000108'::uuid, 'parent', 'Inactive Parent', false);
+  ('00000000-0000-4000-8000-000000000108'::uuid, 'parent', 'Inactive Parent', false),
+  ('00000000-0000-4000-8000-000000000109'::uuid, 'padre', 'Legacy Padre', true);
 
 INSERT INTO public.classes (id, name, school_id) VALUES
   ('00000000-0000-4000-8000-000000000301'::uuid, 'Aula A1', '00000000-0000-4000-8000-000000000201'::uuid),
@@ -37,6 +38,7 @@ INSERT INTO public.children (id, class_id, name) VALUES
 INSERT INTO public.parents_children (parent_id, child_id) VALUES
   ('00000000-0000-4000-8000-000000000104'::uuid, '00000000-0000-4000-8000-000000000401'::uuid),
   ('00000000-0000-4000-8000-000000000104'::uuid, '00000000-0000-4000-8000-000000000402'::uuid),
+  ('00000000-0000-4000-8000-000000000109'::uuid, '00000000-0000-4000-8000-000000000401'::uuid),
   ('00000000-0000-4000-8000-000000000105'::uuid, '00000000-0000-4000-8000-000000000403'::uuid);
 
 INSERT INTO public.worker_classrooms (worker_id, class_id) VALUES
@@ -71,6 +73,11 @@ SELECT ok(
   'effective capability reads are available only to authenticated callers'
 );
 SELECT ok(
+  NOT has_function_privilege('authenticated', 'private.assert_class_capability_scope(uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'private.assert_class_capability_scope(uuid,text)', 'EXECUTE'),
+  'the shared class-scope assertion is not directly executable by API roles'
+);
+SELECT ok(
   has_function_privilege('authenticated', 'public.get_school_supervisor_assignments(uuid)', 'EXECUTE')
   AND has_function_privilege('authenticated', 'public.set_school_supervisor_assignment(uuid,uuid,boolean)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.set_school_supervisor_assignment(uuid,uuid,boolean)', 'EXECUTE'),
@@ -82,6 +89,11 @@ SELECT set_config('request.jwt.claims', json_build_object(
   'sub', '00000000-0000-4000-8000-000000000101', 'role', 'admin'
 )::text, true);
 
+SELECT is(
+  (SELECT count(*) FROM public.schools),
+  2::bigint,
+  'admins retain their existing school SELECT access'
+);
 SELECT is(
   (SELECT count(*) FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)),
   2::bigint,
@@ -216,6 +228,20 @@ SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'family_meal_records', true)$$,
   '42501',
   'a parent cannot write school capabilities'
+);
+
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', '00000000-0000-4000-8000-000000000109', 'role', 'authenticated'
+)::text, true);
+SELECT is(
+  (SELECT count(*) FROM public.get_effective_capabilities(p_child_id => '00000000-0000-4000-8000-000000000401'::uuid)),
+  3::bigint,
+  'a related legacy padre can read effective capabilities for their child'
+);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_effective_capabilities(p_child_id => '00000000-0000-4000-8000-000000000403'::uuid)$$,
+  '42501',
+  'a legacy padre cannot read a child without a family relationship'
 );
 
 -- Monitor access is class-assignment scoped, and also works without a users.school_id.
@@ -422,6 +448,16 @@ SELECT is(
   0::bigint,
   'the class read policy hides School B classes from the School A supervisor'
 );
+SELECT is(
+  (SELECT count(*) FROM public.schools WHERE id = '00000000-0000-4000-8000-000000000201'::uuid),
+  1::bigint,
+  'an assigned supervisor can select their assigned school record'
+);
+SELECT is(
+  (SELECT count(*) FROM public.schools WHERE id = '00000000-0000-4000-8000-000000000202'::uuid),
+  0::bigint,
+  'an assigned supervisor cannot select an unassigned school record'
+);
 SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'monitor_daily_summary', false);
 SELECT is(
   (SELECT enabled FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)
@@ -498,6 +534,16 @@ SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'unknown_capability', true)$$,
   '22023',
   'the write contract rejects capability keys outside the fixed set'
+);
+SELECT throws_ok(
+  $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'unknown_capability', true)$$,
+  '22023',
+  'setting a class rejects capability keys outside the fixed set'
+);
+SELECT throws_ok(
+  $$SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'unknown_capability')$$,
+  '22023',
+  'resetting a class rejects capability keys outside the fixed set'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities()$$,

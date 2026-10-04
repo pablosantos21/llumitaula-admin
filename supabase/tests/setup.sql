@@ -234,6 +234,20 @@ alter table public.devices enable row level security;
 alter table public.classes enable row level security;
 alter table public.children enable row level security;
 
+-- Existing school SELECT behavior: admins and non-supervisors retain access,
+-- while supervisors are scoped by the legacy users.school_id helper. The
+-- capability migration adds an independent policy for explicit assignments.
+create policy schools_existing_select on public.schools
+  for select
+  to authenticated
+  using (
+    public.current_user_active()
+    and (
+      public.current_user_role() <> 'supervisor'
+      or id = public.current_user_school_id()
+    )
+  );
+
 -- Staff read access mirroring the remote devices_administration policies:
 -- an admin sees everything, a supervisor only their own school.
 create policy staff_read_devices on public.devices
