@@ -1,37 +1,54 @@
 -- School-level capability values default to enabled. Class rows are optional
 -- overrides, so new classes automatically inherit the current school value.
+CREATE TABLE public.capability_catalog (
+  capability text PRIMARY KEY,
+  default_enabled boolean NOT NULL DEFAULT true
+);
+
+INSERT INTO public.capability_catalog (capability, default_enabled) VALUES
+  ('family_meal_records', true),
+  ('monitor_internal_notifications', true),
+  ('monitor_daily_summary', true);
+
 CREATE TABLE public.school_capabilities (
   school_id uuid NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
-  capability text NOT NULL CHECK (capability IN (
-    'family_meal_records',
-    'monitor_internal_notifications',
-    'monitor_daily_summary'
-  )),
+  capability text NOT NULL REFERENCES public.capability_catalog(capability),
   enabled boolean NOT NULL,
   PRIMARY KEY (school_id, capability)
 );
 
 CREATE TABLE public.class_capability_overrides (
   class_id uuid NOT NULL REFERENCES public.classes(id) ON DELETE CASCADE,
-  capability text NOT NULL CHECK (capability IN (
-    'family_meal_records',
-    'monitor_internal_notifications',
-    'monitor_daily_summary'
-  )),
+  capability text NOT NULL REFERENCES public.capability_catalog(capability),
   enabled boolean NOT NULL,
   PRIMARY KEY (class_id, capability)
 );
 
+-- Supervisors have no school_id on the live users table. Assignments are the
+-- sole source of supervisor capability scope.
+CREATE TABLE public.school_supervisor_assignments (
+  school_id uuid NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+  supervisor_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  PRIMARY KEY (school_id, supervisor_id)
+);
+
+CREATE INDEX school_supervisor_assignments_supervisor_id_idx
+  ON public.school_supervisor_assignments (supervisor_id);
+
+ALTER TABLE public.capability_catalog ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.school_capabilities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_capability_overrides ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.school_supervisor_assignments ENABLE ROW LEVEL SECURITY;
 
 -- The tables are an implementation detail. All reads and writes go through
--- role-checked functions below; class writes also validate the class through
--- the shared tenant-access helper.
+-- role-checked functions below; class writes resolve the target school's
+-- scope from the class row before checking the caller's assignment.
+REVOKE ALL ON TABLE public.capability_catalog FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.school_capabilities FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.class_capability_overrides FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.school_supervisor_assignments FROM PUBLIC, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION private.can_manage_school_capabilities(p_school_id uuid)
+CREATE OR REPLACE FUNCTION public.current_user_can_manage_school_capabilities(p_school_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -39,14 +56,104 @@ SECURITY DEFINER
 SET search_path = ''
 AS $function$
   SELECT public.current_user_active()
-     AND public.current_user_role() IN ('admin', 'supervisor')
      AND EXISTS (
-       SELECT 1
-         FROM public.schools s
-        WHERE s.id = p_school_id
-     );
+        SELECT 1
+          FROM public.schools s
+         WHERE s.id = p_school_id
+           AND (
+             public.current_user_role() = 'admin'
+             OR (
+               public.current_user_role() = 'supervisor'
+               AND EXISTS (
+                 SELECT 1
+                   FROM public.school_supervisor_assignments a
+                  WHERE a.school_id = s.id
+                    AND a.supervisor_id = public.current_user_id()
+               )
+             )
+           )
+      );
 $function$;
-REVOKE ALL ON FUNCTION private.can_manage_school_capabilities(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.current_user_can_manage_school_capabilities(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.current_user_can_manage_school_capabilities(uuid) TO authenticated;
+
+-- Keep assigned supervisors' class list visible to the capability management
+-- page while preserving the existing parent/monitor read policies.
+DROP POLICY IF EXISTS classes_select_assigned_supervisors ON public.classes;
+CREATE POLICY classes_select_assigned_supervisors ON public.classes
+  FOR SELECT TO authenticated
+  USING (public.current_user_can_manage_school_capabilities(school_id));
+
+CREATE OR REPLACE FUNCTION public.get_school_supervisor_assignments(p_school_id uuid)
+RETURNS TABLE (
+  supervisor_id uuid,
+  full_name text,
+  active boolean,
+  assigned boolean
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF NOT public.current_user_active()
+     OR public.current_user_role() IS DISTINCT FROM 'admin'
+     OR NOT EXISTS (SELECT 1 FROM public.schools s WHERE s.id = p_school_id) THEN
+    RAISE EXCEPTION 'School not found or not accessible'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+  SELECT u.id, u.full_name, u.active, a.supervisor_id IS NOT NULL
+    FROM public.users u
+    LEFT JOIN public.school_supervisor_assignments a
+      ON a.school_id = p_school_id
+     AND a.supervisor_id = u.id
+   WHERE u.role::text = 'supervisor'
+   ORDER BY lower(coalesce(u.full_name, '')), u.id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.set_school_supervisor_assignment(
+  p_school_id uuid,
+  p_supervisor_id uuid,
+  p_assigned boolean
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF NOT public.current_user_active()
+     OR public.current_user_role() IS DISTINCT FROM 'admin'
+     OR NOT EXISTS (SELECT 1 FROM public.schools s WHERE s.id = p_school_id) THEN
+    RAISE EXCEPTION 'School not found or not accessible'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_assigned IS NULL OR NOT EXISTS (
+    SELECT 1
+      FROM public.users u
+     WHERE u.id = p_supervisor_id
+       AND u.role::text = 'supervisor'
+  ) THEN
+    RAISE EXCEPTION 'Expected an existing supervisor and an assignment state'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_assigned THEN
+    INSERT INTO public.school_supervisor_assignments (school_id, supervisor_id)
+    VALUES (p_school_id, p_supervisor_id)
+    ON CONFLICT (school_id, supervisor_id) DO NOTHING;
+  ELSE
+    DELETE FROM public.school_supervisor_assignments a
+     WHERE a.school_id = p_school_id
+       AND a.supervisor_id = p_supervisor_id;
+  END IF;
+END;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_capability_settings(p_school_id uuid)
 RETURNS TABLE (
@@ -63,26 +170,20 @@ SECURITY DEFINER
 SET search_path = ''
 AS $function$
 BEGIN
-  IF NOT private.can_manage_school_capabilities(p_school_id) THEN
+  IF NOT public.current_user_can_manage_school_capabilities(p_school_id) THEN
     RAISE EXCEPTION 'School not found or not accessible'
       USING ERRCODE = '42501';
   END IF;
 
   RETURN QUERY
-  WITH capability_keys(capability) AS (
-    VALUES
-      ('family_meal_records'::text),
-      ('monitor_internal_notifications'::text),
-      ('monitor_daily_summary'::text)
-  )
   SELECT
     NULL::uuid,
     k.capability,
-    COALESCE(s.enabled, true),
+    COALESCE(s.enabled, k.default_enabled),
     NULL::boolean,
-    COALESCE(s.enabled, true),
+    COALESCE(s.enabled, k.default_enabled),
     CASE WHEN s.enabled IS NULL THEN 'default'::text ELSE 'school'::text END
-  FROM capability_keys k
+  FROM public.capability_catalog k
   LEFT JOIN public.school_capabilities s
     ON s.school_id = p_school_id
    AND s.capability = k.capability
@@ -92,16 +193,16 @@ BEGIN
   SELECT
     c.id,
     k.capability,
-    COALESCE(s.enabled, true),
+    COALESCE(s.enabled, k.default_enabled),
     o.enabled,
-    COALESCE(o.enabled, s.enabled, true),
+    COALESCE(o.enabled, s.enabled, k.default_enabled),
     CASE
       WHEN o.enabled IS NOT NULL THEN 'class'::text
       WHEN s.enabled IS NOT NULL THEN 'school'::text
       ELSE 'default'::text
     END
   FROM public.classes c
-  CROSS JOIN capability_keys k
+  CROSS JOIN public.capability_catalog k
   LEFT JOIN public.school_capabilities s
     ON s.school_id = c.school_id
    AND s.capability = k.capability
@@ -133,7 +234,7 @@ BEGIN
   END IF;
 
   IF p_child_id IS NOT NULL THEN
-    IF v_role <> 'parent'
+    IF v_role IS DISTINCT FROM 'parent'
        OR NOT private.current_user_can_access_child(p_child_id) THEN
       RAISE EXCEPTION 'Child not found or not accessible'
         USING ERRCODE = '42501';
@@ -145,16 +246,30 @@ BEGIN
       JOIN public.classes c ON c.id = ch.class_id
      WHERE ch.id = p_child_id;
   ELSE
-    IF v_role NOT IN ('admin', 'supervisor', 'monitor')
-       OR NOT private.current_user_can_access_class(p_class_id) THEN
-      RAISE EXCEPTION 'Class not found or not accessible'
-        USING ERRCODE = '42501';
-    END IF;
-
     SELECT c.id, c.school_id
       INTO v_class_id, v_school_id
       FROM public.classes c
      WHERE c.id = p_class_id;
+
+    IF v_class_id IS NULL OR v_school_id IS NULL THEN
+      RAISE EXCEPTION 'Class not found or not accessible'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF v_role IN ('admin', 'supervisor') THEN
+      IF NOT public.current_user_can_manage_school_capabilities(v_school_id) THEN
+        RAISE EXCEPTION 'Class not found or not accessible'
+          USING ERRCODE = '42501';
+      END IF;
+    ELSIF v_role = 'monitor' THEN
+      IF NOT private.current_user_can_access_class(p_class_id) THEN
+        RAISE EXCEPTION 'Class not found or not accessible'
+          USING ERRCODE = '42501';
+      END IF;
+    ELSE
+      RAISE EXCEPTION 'Class not found or not accessible'
+        USING ERRCODE = '42501';
+    END IF;
   END IF;
 
   IF v_class_id IS NULL OR v_school_id IS NULL THEN
@@ -163,16 +278,10 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  WITH capability_keys(capability) AS (
-    VALUES
-      ('family_meal_records'::text),
-      ('monitor_internal_notifications'::text),
-      ('monitor_daily_summary'::text)
-  )
   SELECT
     k.capability,
-    COALESCE(o.enabled, s.enabled, true)
-  FROM capability_keys k
+    COALESCE(o.enabled, s.enabled, k.default_enabled)
+  FROM public.capability_catalog k
   LEFT JOIN public.school_capabilities s
     ON s.school_id = v_school_id
    AND s.capability = k.capability
@@ -193,16 +302,14 @@ SECURITY DEFINER
 SET search_path = ''
 AS $function$
 BEGIN
-  IF p_capability IS NULL OR p_capability NOT IN (
-    'family_meal_records',
-    'monitor_internal_notifications',
-    'monitor_daily_summary'
+  IF p_capability IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.capability_catalog c WHERE c.capability = p_capability
   ) THEN
     RAISE EXCEPTION 'Unknown capability: %', p_capability
       USING ERRCODE = '22023';
   END IF;
 
-  IF NOT private.can_manage_school_capabilities(p_school_id) THEN
+  IF NOT public.current_user_can_manage_school_capabilities(p_school_id) THEN
     RAISE EXCEPTION 'School not found or not accessible'
       USING ERRCODE = '42501';
   END IF;
@@ -227,10 +334,8 @@ AS $function$
 DECLARE
   v_school_id uuid;
 BEGIN
-  IF p_capability IS NULL OR p_capability NOT IN (
-    'family_meal_records',
-    'monitor_internal_notifications',
-    'monitor_daily_summary'
+  IF p_capability IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.capability_catalog c WHERE c.capability = p_capability
   ) THEN
     RAISE EXCEPTION 'Unknown capability: %', p_capability
       USING ERRCODE = '22023';
@@ -242,8 +347,7 @@ BEGIN
    WHERE c.id = p_class_id;
 
   IF v_school_id IS NULL
-     OR NOT private.can_manage_school_capabilities(v_school_id)
-     OR NOT private.current_user_can_access_class(p_class_id) THEN
+     OR NOT public.current_user_can_manage_school_capabilities(v_school_id) THEN
     RAISE EXCEPTION 'Class not found or not accessible'
       USING ERRCODE = '42501';
   END IF;
@@ -267,10 +371,8 @@ AS $function$
 DECLARE
   v_school_id uuid;
 BEGIN
-  IF p_capability IS NULL OR p_capability NOT IN (
-    'family_meal_records',
-    'monitor_internal_notifications',
-    'monitor_daily_summary'
+  IF p_capability IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.capability_catalog c WHERE c.capability = p_capability
   ) THEN
     RAISE EXCEPTION 'Unknown capability: %', p_capability
       USING ERRCODE = '22023';
@@ -282,8 +384,7 @@ BEGIN
    WHERE c.id = p_class_id;
 
   IF v_school_id IS NULL
-     OR NOT private.can_manage_school_capabilities(v_school_id)
-     OR NOT private.current_user_can_access_class(p_class_id) THEN
+     OR NOT public.current_user_can_manage_school_capabilities(v_school_id) THEN
     RAISE EXCEPTION 'Class not found or not accessible'
       USING ERRCODE = '42501';
   END IF;
@@ -299,9 +400,13 @@ REVOKE ALL ON FUNCTION public.get_effective_capabilities(uuid, uuid) FROM PUBLIC
 REVOKE ALL ON FUNCTION public.set_school_capability(uuid, text, boolean) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.set_class_capability(uuid, text, boolean) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.reset_class_capability(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_school_supervisor_assignments(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.set_school_supervisor_assignment(uuid, uuid, boolean) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.get_capability_settings(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_effective_capabilities(uuid, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_school_capability(uuid, text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_class_capability(uuid, text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.reset_class_capability(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_school_supervisor_assignments(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_school_supervisor_assignment(uuid, uuid, boolean) TO authenticated;

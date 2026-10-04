@@ -35,6 +35,13 @@ export interface EffectiveCapability {
     enabled: boolean
 }
 
+export interface SchoolSupervisorAssignment {
+    supervisor_id: string
+    full_name: string | null
+    active: boolean
+    assigned: boolean
+}
+
 export const CapabilityService = {
     getSettings: async (schoolId: string): Promise<CapabilitySetting[]> => {
         const { data, error } = await supabase.rpc('get_capability_settings', {
@@ -89,6 +96,29 @@ export const CapabilityService = {
         const { error } = await supabase.rpc('reset_class_capability', {
             p_class_id: classId,
             p_capability: capability,
+        })
+
+        if (error) throw error
+    },
+
+    getSchoolSupervisorAssignments: async (schoolId: string): Promise<SchoolSupervisorAssignment[]> => {
+        const { data, error } = await supabase.rpc('get_school_supervisor_assignments', {
+            p_school_id: schoolId,
+        })
+
+        if (error) throw error
+        return (data ?? []) as SchoolSupervisorAssignment[]
+    },
+
+    setSchoolSupervisorAssignment: async (
+        schoolId: string,
+        supervisorId: string,
+        assigned: boolean,
+    ): Promise<void> => {
+        const { error } = await supabase.rpc('set_school_supervisor_assignment', {
+            p_school_id: schoolId,
+            p_supervisor_id: supervisorId,
+            p_assigned: assigned,
         })
 
         if (error) throw error

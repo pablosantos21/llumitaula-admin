@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(45);
+SELECT plan(72);
 
 SET LOCAL ROLE postgres;
 
@@ -13,16 +13,16 @@ INSERT INTO public.schools (id, name) VALUES
   ('00000000-0000-4000-8000-000000000201'::uuid, 'School A'),
   ('00000000-0000-4000-8000-000000000202'::uuid, 'School B');
 
-INSERT INTO public.users (id, role, school_id, full_name, active) VALUES
-  ('00000000-0000-4000-8000-000000000101'::uuid, 'admin', NULL, 'Admin', true),
-  ('00000000-0000-4000-8000-000000000102'::uuid, 'supervisor', NULL, 'Supervisor', true),
-  -- These users have no school_id, matching the live schema's authorization
-  -- model. Parent/monitor access comes from their child/class relationships.
-  ('00000000-0000-4000-8000-000000000104'::uuid, 'parent', NULL, 'Parent A', true),
-  ('00000000-0000-4000-8000-000000000105'::uuid, 'parent', NULL, 'Parent B', true),
-  ('00000000-0000-4000-8000-000000000106'::uuid, 'monitor', NULL, 'Monitor A', true),
-  ('00000000-0000-4000-8000-000000000107'::uuid, 'monitor', NULL, 'Monitor B', true),
-  ('00000000-0000-4000-8000-000000000108'::uuid, 'parent', NULL, 'Inactive Parent', false);
+INSERT INTO public.users (id, role, full_name, active) VALUES
+  ('00000000-0000-4000-8000-000000000101'::uuid, 'admin', 'Admin', true),
+  ('00000000-0000-4000-8000-000000000102'::uuid, 'supervisor', 'Supervisor', true),
+  ('00000000-0000-4000-8000-000000000103'::uuid, 'supervisor', 'Unassigned Supervisor', true),
+  -- Parent/monitor access comes from child/class relationships, not school_id.
+  ('00000000-0000-4000-8000-000000000104'::uuid, 'parent', 'Parent A', true),
+  ('00000000-0000-4000-8000-000000000105'::uuid, 'parent', 'Parent B', true),
+  ('00000000-0000-4000-8000-000000000106'::uuid, 'monitor', 'Monitor A', true),
+  ('00000000-0000-4000-8000-000000000107'::uuid, 'monitor', 'Monitor B', true),
+  ('00000000-0000-4000-8000-000000000108'::uuid, 'parent', 'Inactive Parent', false);
 
 INSERT INTO public.classes (id, name, school_id) VALUES
   ('00000000-0000-4000-8000-000000000301'::uuid, 'Aula A1', '00000000-0000-4000-8000-000000000201'::uuid),
@@ -47,22 +47,34 @@ INSERT INTO public.monitors (id, user_id, school_id) VALUES
   ('00000000-0000-4000-8000-000000000701'::uuid, '00000000-0000-4000-8000-000000000106'::uuid, '00000000-0000-4000-8000-000000000201'::uuid),
   ('00000000-0000-4000-8000-000000000702'::uuid, '00000000-0000-4000-8000-000000000107'::uuid, '00000000-0000-4000-8000-000000000202'::uuid);
 
+SELECT has_table('public', 'capability_catalog', 'the database capability catalog exists');
 SELECT has_table('public', 'school_capabilities', 'school capability persistence exists');
 SELECT has_table('public', 'class_capability_overrides', 'class override persistence exists');
+SELECT has_table('public', 'school_supervisor_assignments', 'explicit supervisor-to-school assignments persist');
 SELECT ok(
-  (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.school_capabilities'::regclass)
-  AND (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.class_capability_overrides'::regclass),
-  'capability persistence tables have RLS enabled'
+  (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.capability_catalog'::regclass)
+  AND (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.school_capabilities'::regclass)
+  AND (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.class_capability_overrides'::regclass)
+  AND (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.school_supervisor_assignments'::regclass),
+  'capability catalog and persistence tables have RLS enabled'
 );
 SELECT ok(
   NOT has_table_privilege('authenticated', 'public.school_capabilities', 'SELECT')
-  AND NOT has_table_privilege('authenticated', 'public.class_capability_overrides', 'SELECT'),
+  AND NOT has_table_privilege('authenticated', 'public.class_capability_overrides', 'SELECT')
+  AND NOT has_table_privilege('authenticated', 'public.capability_catalog', 'SELECT')
+  AND NOT has_table_privilege('authenticated', 'public.school_supervisor_assignments', 'SELECT'),
   'callers cannot bypass scoped RPCs by reading persistence tables directly'
 );
 SELECT ok(
   has_function_privilege('authenticated', 'public.get_effective_capabilities(uuid,uuid)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.get_effective_capabilities(uuid,uuid)', 'EXECUTE'),
   'effective capability reads are available only to authenticated callers'
+);
+SELECT ok(
+  has_function_privilege('authenticated', 'public.get_school_supervisor_assignments(uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.set_school_supervisor_assignment(uuid,uuid,boolean)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.set_school_supervisor_assignment(uuid,uuid,boolean)', 'EXECUTE'),
+  'supervisor assignment management RPCs require authenticated authorization'
 );
 
 SET LOCAL ROLE authenticated;
@@ -71,9 +83,42 @@ SELECT set_config('request.jwt.claims', json_build_object(
 )::text, true);
 
 SELECT is(
+  (SELECT count(*) FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)),
+  2::bigint,
+  'admin can list existing supervisor users for a school'
+);
+SELECT is(
+  (SELECT assigned FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)
+    WHERE supervisor_id = '00000000-0000-4000-8000-000000000103'::uuid),
+  false,
+  'a supervisor starts unassigned'
+);
+SELECT public.set_school_supervisor_assignment(
+  '00000000-0000-4000-8000-000000000201'::uuid,
+  '00000000-0000-4000-8000-000000000102'::uuid,
+  true
+);
+SELECT is(
+  (SELECT assigned FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)
+    WHERE supervisor_id = '00000000-0000-4000-8000-000000000102'::uuid),
+  true,
+  'admin can assign a supervisor to School A'
+);
+SELECT throws_ok(
+  $$SELECT public.set_school_supervisor_assignment('00000000-0000-4000-8000-000000000201'::uuid, '00000000-0000-4000-8000-000000000101'::uuid, true)$$,
+  '22023',
+  'assignment management rejects users who are not supervisors'
+);
+
+SELECT is(
   (SELECT count(*) FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)),
   9::bigint,
   'school settings return three school values and three values for each of two classes'
+);
+SELECT is(
+  (SELECT count(*) FROM public.get_capability_settings('00000000-0000-4000-8000-000000000202'::uuid)),
+  6::bigint,
+  'admin capability management remains globally scoped across schools'
 );
 SELECT is(
   (SELECT count(*) FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid) WHERE enabled),
@@ -306,21 +351,135 @@ SELECT is(
 );
 
 SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', '00000000-0000-4000-8000-000000000103', 'role', 'authenticated'
+)::text, true);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)$$,
+  '42501',
+  'an unassigned supervisor cannot read School A settings'
+);
+SELECT throws_ok(
+  $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'family_meal_records', false)$$,
+  '42501',
+  'an unassigned supervisor cannot write School A settings'
+);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000301'::uuid)$$,
+  '42501',
+  'an unassigned supervisor cannot read effective class settings'
+);
+SELECT throws_ok(
+  $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records', true)$$,
+  '42501',
+  'an unassigned supervisor cannot set a class override'
+);
+SELECT throws_ok(
+  $$SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records')$$,
+  '42501',
+  'an unassigned supervisor cannot reset a class override'
+);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)$$,
+  '42501',
+  'a supervisor cannot list school assignments'
+);
+SELECT throws_ok(
+  $$SELECT public.set_school_supervisor_assignment('00000000-0000-4000-8000-000000000201'::uuid, '00000000-0000-4000-8000-000000000103'::uuid, true)$$,
+  '42501',
+  'a supervisor cannot assign themselves to a school'
+);
+
+SELECT set_config('request.jwt.claims', json_build_object(
   'sub', '00000000-0000-4000-8000-000000000102', 'role', 'authenticated'
 )::text, true);
+SELECT is(
+  (SELECT count(*) FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)),
+  12::bigint,
+  'an assigned supervisor can read School A settings and all its class settings'
+);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000202'::uuid)$$,
+  '42501',
+  'an assigned supervisor cannot read School B settings'
+);
+SELECT is(
+  (SELECT count(*) FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000301'::uuid)),
+  3::bigint,
+  'an assigned supervisor can read effective settings for a class in School A'
+);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000303'::uuid)$$,
+  '42501',
+  'an assigned supervisor cannot read effective settings for a class in School B'
+);
+SELECT is(
+  (SELECT count(*) FROM public.classes WHERE school_id = '00000000-0000-4000-8000-000000000201'::uuid),
+  3::bigint,
+  'an assigned supervisor can load School A classes for capability management'
+);
+SELECT is(
+  (SELECT count(*) FROM public.classes WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid),
+  0::bigint,
+  'the class read policy hides School B classes from the School A supervisor'
+);
 SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'monitor_daily_summary', false);
 SELECT is(
   (SELECT enabled FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)
     WHERE class_id IS NULL AND capability = 'monitor_daily_summary'),
   false,
-  'an authorized supervisor can persist a school-level setting'
+  'an assigned supervisor can persist a school-level setting in School A'
+);
+SELECT throws_ok(
+  $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000202'::uuid, 'monitor_daily_summary', true)$$,
+  '42501',
+  'an assigned supervisor cannot change a school-level setting in School B'
 );
 SELECT public.set_class_capability('00000000-0000-4000-8000-000000000302'::uuid, 'family_meal_records', true);
 SELECT is(
   (SELECT enabled FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000302'::uuid)
     WHERE capability = 'family_meal_records'),
   true,
-  'an authorized supervisor can persist a class override'
+  'an assigned supervisor can persist a class override in School A'
+);
+SELECT throws_ok(
+  $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000303'::uuid, 'family_meal_records', true)$$,
+  '42501',
+  'an assigned supervisor cannot set a class override in School B'
+);
+SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000302'::uuid, 'family_meal_records');
+SELECT is(
+  (SELECT enabled FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000302'::uuid)
+    WHERE capability = 'family_meal_records'),
+  false,
+  'an assigned supervisor can reset a School A override to its school value'
+);
+SELECT throws_ok(
+  $$SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000303'::uuid, 'family_meal_records')$$,
+  '42501',
+  'an assigned supervisor cannot reset a class override in School B'
+);
+
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', '00000000-0000-4000-8000-000000000101', 'role', 'admin'
+)::text, true);
+SELECT public.set_school_supervisor_assignment(
+  '00000000-0000-4000-8000-000000000201'::uuid,
+  '00000000-0000-4000-8000-000000000102'::uuid,
+  false
+);
+SELECT is(
+  (SELECT assigned FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)
+    WHERE supervisor_id = '00000000-0000-4000-8000-000000000102'::uuid),
+  false,
+  'admin can revoke a supervisor assignment'
+);
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', '00000000-0000-4000-8000-000000000102', 'role', 'authenticated'
+)::text, true);
+SELECT throws_ok(
+  $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)$$,
+  '42501',
+  'revoking the assignment immediately removes School A capability access'
 );
 
 SELECT set_config('request.jwt.claims', json_build_object(

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useAuth } from '../../../contexts/AuthContext'
 import { ClassService, type Class } from '../../../services/classes.service'
 import { SchoolService, type School } from '../../../services/schools.service'
 import { DataTable } from '../../../components/ui/data-table'
@@ -15,18 +16,23 @@ import {
     CapabilityService,
     type CapabilityKey,
     type CapabilitySetting,
+    type SchoolSupervisorAssignment,
 } from '../../../services/capabilities.service'
 
-type Mutation = 'school' | 'create' | 'edit' | 'toggle' | 'capability' | null
+type Mutation = 'school' | 'create' | 'edit' | 'toggle' | 'capability' | 'supervisor-assignment' | null
 
 const sortClasses = (classes: Class[]) =>
     [...classes].sort((a, b) => a.name.localeCompare(b.name))
 
 export default function ClassesPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
+    const { user } = useAuth()
+    const canManageClasses = user?.role === 'admin'
+    const canManageSupervisorAssignments = canManageClasses
     const [school, setSchool] = useState<School | null>(null)
     const [classes, setClasses] = useState<Class[]>([])
     const [capabilitySettings, setCapabilitySettings] = useState<CapabilitySetting[]>([])
+    const [supervisorAssignments, setSupervisorAssignments] = useState<SchoolSupervisorAssignment[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [mutationError, setMutationError] = useState<string | null>(null)
@@ -54,15 +60,19 @@ export default function ClassesPage() {
             }
 
             try {
-                const [schoolData, classData, capabilityData] = await Promise.all([
+                const [schoolData, classData, capabilityData, supervisorData] = await Promise.all([
                     SchoolService.getSchoolById(schoolId),
                     ClassService.getClassesBySchool(schoolId),
                     CapabilityService.getSettings(schoolId),
+                    canManageSupervisorAssignments
+                        ? CapabilityService.getSchoolSupervisorAssignments(schoolId)
+                        : Promise.resolve([]),
                 ])
                 if (isCurrent) {
                     setSchool(schoolData)
                     setClasses(sortClasses(classData))
                     setCapabilitySettings(capabilityData)
+                    setSupervisorAssignments(supervisorData)
                 }
             } catch (err) {
                 console.error('Error loading school classes:', err)
@@ -76,7 +86,7 @@ export default function ClassesPage() {
         return () => {
             isCurrent = false
         }
-    }, [schoolId])
+    }, [schoolId, canManageSupervisorAssignments])
 
     const handleUpdateSchool = async (event: React.FormEvent) => {
         event.preventDefault()
@@ -182,6 +192,22 @@ export default function ClassesPage() {
         }
     }
 
+    const saveSupervisorAssignment = async (supervisorId: string, assigned: boolean) => {
+        if (!schoolId) return
+
+        try {
+            setMutation('supervisor-assignment')
+            setMutationError(null)
+            await CapabilityService.setSchoolSupervisorAssignment(schoolId, supervisorId, assigned)
+            setSupervisorAssignments(await CapabilityService.getSchoolSupervisorAssignments(schoolId))
+        } catch (err) {
+            console.error('Error updating school supervisor assignment:', err)
+            setMutationError('No se pudo actualizar la asignación del supervisor. Vuelve a intentarlo.')
+        } finally {
+            setMutation(null)
+        }
+    }
+
     const getCapabilitySetting = (classId: string | null, capability: CapabilityKey) =>
         capabilitySettings.find(setting => setting.class_id === classId && setting.capability === capability)
 
@@ -275,7 +301,7 @@ export default function ClassesPage() {
                 </div>
             )
         },
-        {
+        ...(canManageClasses ? [{
             header: 'Acciones',
             className: 'text-right',
             accessor: (classItem: Class) => (
@@ -307,7 +333,7 @@ export default function ClassesPage() {
                     </Button>
                 </div>
             )
-        }
+        }] : [])
     ]
 
     if (isLoading) {
@@ -328,6 +354,7 @@ export default function ClassesPage() {
     const isEditMutation = mutation === 'edit'
     const isToggleMutation = mutation === 'toggle'
     const isCapabilityMutation = mutation === 'capability'
+    const isSupervisorAssignmentMutation = mutation === 'supervisor-assignment'
 
     return (
         <div className="space-y-6">
@@ -335,40 +362,51 @@ export default function ClassesPage() {
                 <div>
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-gray-900">{school?.name}</h1>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-500 hover:text-primary-600"
-                            title="Editar nombre del colegio"
-                            aria-label="Editar nombre del colegio"
-                            onClick={() => {
-                                setSchoolName(school?.name || '')
-                                setMutationError(null)
-                                setIsSchoolModalOpen(true)
-                            }}
-                            disabled={mutation !== null}
-                        >
-                            <Edit2 className="h-4 w-4" />
-                        </Button>
+                        {canManageClasses && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-500 hover:text-primary-600"
+                                title="Editar nombre del colegio"
+                                aria-label="Editar nombre del colegio"
+                                onClick={() => {
+                                    setSchoolName(school?.name || '')
+                                    setMutationError(null)
+                                    setIsSchoolModalOpen(true)
+                                }}
+                                disabled={mutation !== null}
+                            >
+                                <Edit2 className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                     <p className="text-sm text-gray-500">Gestiona las capacidades del colegio y los ajustes de cada aula.</p>
                 </div>
-                <Button
-                    onClick={() => {
-                        setMutationError(null)
-                        setIsCreateModalOpen(true)
-                    }}
-                    className="flex items-center gap-2"
-                    disabled={mutation !== null}
-                >
-                    <Plus className="h-4 w-4" />
-                    Nueva aula
-                </Button>
+                {canManageClasses && (
+                    <Button
+                        onClick={() => {
+                            setMutationError(null)
+                            setIsCreateModalOpen(true)
+                        }}
+                        className="flex items-center gap-2"
+                        disabled={mutation !== null}
+                    >
+                        <Plus className="h-4 w-4" />
+                        Nueva aula
+                    </Button>
+                )}
             </div>
 
             {mutationError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
                     {mutationError}
+                </div>
+            )}
+
+            {(isCapabilityMutation || isSupervisorAssignmentMutation) && (
+                <div className="flex items-center gap-2 text-sm text-primary-700" role="status" aria-live="polite">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    {isCapabilityMutation ? 'Guardando cambio de capacidad...' : 'Guardando asignación de supervisor...'}
                 </div>
             )}
 
@@ -399,7 +437,7 @@ export default function ClassesPage() {
                                         className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                         checked={setting.enabled}
                                         aria-label={option.label}
-                                        disabled={isCapabilityMutation}
+                                        disabled={mutation !== null}
                                         onChange={event => {
                                             if (schoolId) {
                                                 void saveCapabilityChange(() => CapabilityService.setSchoolCapability(
@@ -417,6 +455,54 @@ export default function ClassesPage() {
                     })}
                 </CardContent>
             </Card>
+
+            {canManageSupervisorAssignments && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Supervisores asignados</CardTitle>
+                        <CardDescription>
+                            Solo los supervisores asignados a este colegio pueden consultar y cambiar sus capacidades.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {supervisorAssignments.length === 0 ? (
+                            <p className="text-sm text-gray-500">No hay usuarios con el rol de supervisor.</p>
+                        ) : supervisorAssignments.map(supervisor => {
+                            const name = supervisor.full_name || `Supervisor ${supervisor.supervisor_id.slice(0, 8)}`
+
+                            return (
+                                <label
+                                    key={supervisor.supervisor_id}
+                                    className="flex flex-col gap-2 rounded-md border border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                    <span>
+                                        <span className="block font-medium text-gray-900">{name}</span>
+                                        <span className="block text-sm text-gray-500">
+                                            {supervisor.assigned ? 'Asignado a este colegio' : 'Sin asignar'}
+                                            {!supervisor.active && ' · Usuario inactivo'}
+                                        </span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                            checked={supervisor.assigned}
+                                            aria-label={supervisor.assigned
+                                                ? `Revocar la asignación de ${name} para este colegio`
+                                                : `Asignar ${name} a este colegio`}
+                                            disabled={mutation !== null || (!supervisor.active && !supervisor.assigned)}
+                                            onChange={event => {
+                                                void saveSupervisorAssignment(supervisor.supervisor_id, event.target.checked)
+                                            }}
+                                        />
+                                        {supervisor.assigned ? 'Asignado' : 'Asignar'}
+                                    </span>
+                                </label>
+                            )
+                        })}
+                    </CardContent>
+                </Card>
+            )}
 
             <DataTable columns={columns} data={classes} emptyMessage="No hay aulas registradas para este colegio." />
 
