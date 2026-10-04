@@ -8,9 +8,16 @@ import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
 import { Label } from '../../../components/ui/label'
 import { Badge } from '../../../components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Edit2, Loader2, Plus, Power } from 'lucide-react'
+import {
+    CAPABILITY_OPTIONS,
+    CapabilityService,
+    type CapabilityKey,
+    type CapabilitySetting,
+} from '../../../services/capabilities.service'
 
-type Mutation = 'school' | 'create' | 'edit' | 'toggle' | null
+type Mutation = 'school' | 'create' | 'edit' | 'toggle' | 'capability' | null
 
 const sortClasses = (classes: Class[]) =>
     [...classes].sort((a, b) => a.name.localeCompare(b.name))
@@ -19,6 +26,7 @@ export default function ClassesPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
     const [school, setSchool] = useState<School | null>(null)
     const [classes, setClasses] = useState<Class[]>([])
+    const [capabilitySettings, setCapabilitySettings] = useState<CapabilitySetting[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [mutationError, setMutationError] = useState<string | null>(null)
@@ -46,13 +54,15 @@ export default function ClassesPage() {
             }
 
             try {
-                const [schoolData, classData] = await Promise.all([
+                const [schoolData, classData, capabilityData] = await Promise.all([
                     SchoolService.getSchoolById(schoolId),
-                    ClassService.getClassesBySchool(schoolId)
+                    ClassService.getClassesBySchool(schoolId),
+                    CapabilityService.getSettings(schoolId),
                 ])
                 if (isCurrent) {
                     setSchool(schoolData)
                     setClasses(sortClasses(classData))
+                    setCapabilitySettings(capabilityData)
                 }
             } catch (err) {
                 console.error('Error loading school classes:', err)
@@ -97,6 +107,15 @@ export default function ClassesPage() {
             setMutationError(null)
             const createdClass = await ClassService.createClass(trimmedName, schoolId)
             setClasses(prev => sortClasses([...prev, createdClass]))
+            const inheritedSettings = capabilitySettings
+                .filter(setting => setting.class_id === null)
+                .map(setting => ({
+                    ...setting,
+                    class_id: createdClass.id,
+                    override_value: null,
+                    enabled: setting.school_value,
+                }))
+            setCapabilitySettings(prev => [...prev, ...inheritedSettings])
             setNewClassName('')
             setIsCreateModalOpen(false)
         } catch (err) {
@@ -146,6 +165,32 @@ export default function ClassesPage() {
         }
     }
 
+    const saveCapabilityChange = async (change: () => Promise<void>) => {
+        if (!schoolId) return
+
+        try {
+            setMutation('capability')
+            setMutationError(null)
+            await change()
+            const settings = await CapabilityService.getSettings(schoolId)
+            setCapabilitySettings(settings)
+        } catch (err) {
+            console.error('Error updating school capabilities:', err)
+            setMutationError('No se pudo actualizar la capacidad. Vuelve a intentarlo.')
+        } finally {
+            setMutation(null)
+        }
+    }
+
+    const getCapabilitySetting = (classId: string | null, capability: CapabilityKey) =>
+        capabilitySettings.find(setting => setting.class_id === classId && setting.capability === capability)
+
+    const setClassCapability = (classId: string, capability: CapabilityKey, value: boolean) =>
+        saveCapabilityChange(() => CapabilityService.setClassCapability(classId, capability, value))
+
+    const resetClassCapability = (classId: string, capability: CapabilityKey) =>
+        saveCapabilityChange(() => CapabilityService.resetClassCapability(classId, capability))
+
     const openEditClass = (classItem: Class) => {
         setClassToEdit(classItem)
         setEditClassName(classItem.name)
@@ -163,6 +208,71 @@ export default function ClassesPage() {
                 <Badge variant={classItem.is_active ? 'success' : 'default'}>
                     {classItem.is_active ? 'Activa' : 'Inactiva'}
                 </Badge>
+            )
+        },
+        {
+            header: 'Capacidades del aula',
+            className: 'min-w-[360px]',
+            accessor: (classItem: Class) => (
+                <div className="space-y-3">
+                    {CAPABILITY_OPTIONS.map(option => {
+                        const setting = getCapabilitySetting(classItem.id, option.key)
+                        if (!setting) return null
+
+                        const isInherited = setting.override_value === null
+                        const selectedValue = isInherited
+                            ? 'inherit'
+                            : setting.override_value
+                                ? 'enabled'
+                                : 'disabled'
+
+                        return (
+                            <div key={option.key} className="rounded-md border border-gray-100 bg-gray-50 p-3">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <p className="font-medium text-gray-800">{option.label}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {isInherited ? 'Heredada del colegio' : 'Configuración propia del aula'}
+                                            {' · '}
+                                            {setting.enabled ? 'Habilitada' : 'Deshabilitada'}
+                                        </p>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2 sm:mt-0">
+                                        <select
+                                            aria-label={`${option.label} en ${classItem.name}`}
+                                            className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs text-gray-700"
+                                            value={selectedValue}
+                                            disabled={mutation !== null}
+                                            onChange={event => {
+                                                if (event.target.value === 'inherit') {
+                                                    resetClassCapability(classItem.id, option.key)
+                                                } else {
+                                                    setClassCapability(classItem.id, option.key, event.target.value === 'enabled')
+                                                }
+                                            }}
+                                        >
+                                            <option value="inherit">Heredar colegio</option>
+                                            <option value="enabled">Habilitada</option>
+                                            <option value="disabled">Deshabilitada</option>
+                                        </select>
+                                        {!isInherited && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 text-xs"
+                                                onClick={() => resetClassCapability(classItem.id, option.key)}
+                                                disabled={mutation !== null}
+                                            >
+                                                Restablecer
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
             )
         },
         {
@@ -217,6 +327,7 @@ export default function ClassesPage() {
     const isCreateMutation = mutation === 'create'
     const isEditMutation = mutation === 'edit'
     const isToggleMutation = mutation === 'toggle'
+    const isCapabilityMutation = mutation === 'capability'
 
     return (
         <div className="space-y-6">
@@ -240,7 +351,7 @@ export default function ClassesPage() {
                             <Edit2 className="h-4 w-4" />
                         </Button>
                     </div>
-                    <p className="text-sm text-gray-500">Gestión de aulas y su estado de disponibilidad.</p>
+                    <p className="text-sm text-gray-500">Gestiona las capacidades del colegio y los ajustes de cada aula.</p>
                 </div>
                 <Button
                     onClick={() => {
@@ -254,6 +365,58 @@ export default function ClassesPage() {
                     Nueva aula
                 </Button>
             </div>
+
+            {mutationError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
+                    {mutationError}
+                </div>
+            )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg">Capacidades del colegio</CardTitle>
+                    <CardDescription>
+                        Estos valores se aplican a las aulas que heredan la configuración. Cada capacidad se guarda por separado.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {CAPABILITY_OPTIONS.map(option => {
+                        const setting = getCapabilitySetting(null, option.key)
+                        if (!setting) return null
+
+                        return (
+                            <div key={option.key} className="flex flex-col gap-3 rounded-md border border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <p className="font-medium text-gray-900">{option.label}</p>
+                                    <p className="text-sm text-gray-500">{option.description}</p>
+                                    <p className="mt-1 text-xs text-gray-400">
+                                        {setting.source === 'default' ? 'Valor predeterminado' : 'Configuración del colegio'}
+                                    </p>
+                                </div>
+                                <label className="inline-flex shrink-0 items-center gap-3 font-medium text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                        checked={setting.enabled}
+                                        aria-label={option.label}
+                                        disabled={isCapabilityMutation}
+                                        onChange={event => {
+                                            if (schoolId) {
+                                                void saveCapabilityChange(() => CapabilityService.setSchoolCapability(
+                                                    schoolId,
+                                                    option.key,
+                                                    event.target.checked,
+                                                ))
+                                            }
+                                        }}
+                                    />
+                                    {setting.enabled ? 'Habilitada' : 'Deshabilitada'}
+                                </label>
+                            </div>
+                        )
+                    })}
+                </CardContent>
+            </Card>
 
             <DataTable columns={columns} data={classes} emptyMessage="No hay aulas registradas para este colegio." />
 
