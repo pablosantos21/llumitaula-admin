@@ -27,8 +27,8 @@ const sortClasses = (classes: Class[]) =>
 export default function ClassesPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
     const { user } = useAuth()
-    const canManageClasses = user?.role === 'admin'
-    const canManageSupervisorAssignments = canManageClasses
+    const canManageClasses = user?.role === 'admin' || user?.role === 'supervisor'
+    const canManageSupervisorAssignments = user?.role === 'admin'
     const [school, setSchool] = useState<School | null>(null)
     const [classes, setClasses] = useState<Class[]>([])
     const [capabilitySettings, setCapabilitySettings] = useState<CapabilitySetting[]>([])

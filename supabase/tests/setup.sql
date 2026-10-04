@@ -66,7 +66,7 @@ create table if not exists public.worker_classrooms (
 create table if not exists public.monitors (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
-  school_id uuid not null references public.schools(id)
+  school_id uuid references public.schools(id)
 );
 
 create table if not exists public.monitors_schools (
@@ -153,6 +153,7 @@ as $$
   select m.school_id
     from public.monitors m
    where m.user_id = public.current_user_id()
+     and m.school_id is not null
   union
   select ms.school_id
     from public.monitors_schools ms
@@ -175,12 +176,28 @@ as $$
            from public.classes c
           where c.id = p_class_id
             and (
-              public.current_user_role() = 'supervisor'
-              or exists (
-                select 1
-                  from public.worker_classrooms wc
-                 where wc.class_id = c.id
-                   and wc.worker_id = public.current_user_id()
+              (
+                public.current_user_role() = 'monitor'
+                and c.school_id in (select private.current_user_monitor_school_ids())
+              )
+              or (
+                public.current_user_role() = 'worker'
+                and exists (
+                  select 1
+                    from public.worker_classrooms wc
+                   where wc.class_id = c.id
+                     and wc.worker_id = public.current_user_id()
+                )
+              )
+              or (
+                public.current_user_role() in ('parent', 'padre')
+                and exists (
+                  select 1
+                    from public.children ch
+                    join public.parents_children pc on pc.child_id = ch.id
+                   where ch.class_id = c.id
+                     and pc.parent_id = public.current_user_id()
+                )
               )
             )
        )
@@ -233,6 +250,27 @@ alter table public.users enable row level security;
 alter table public.devices enable row level security;
 alter table public.classes enable row level security;
 alter table public.children enable row level security;
+
+create policy users_admin_select on public.users
+  for select
+  to authenticated
+  using (public.current_user_active() and public.current_user_role() = 'admin');
+
+create policy classes_related_select on public.classes
+  for select
+  to authenticated
+  using (
+    public.current_user_active()
+    and (
+      public.current_user_role() = 'admin'
+      or private.current_user_can_access_class(id)
+    )
+  );
+
+create policy children_related_select on public.children
+  for select
+  to authenticated
+  using (private.current_user_can_access_child(id));
 
 -- Existing school SELECT behavior: admins and non-supervisors retain access,
 -- while supervisors are scoped by the legacy users.school_id helper. The
