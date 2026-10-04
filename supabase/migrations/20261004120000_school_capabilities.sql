@@ -236,14 +236,15 @@ GRANT EXECUTE ON FUNCTION private.current_user_can_read_capability_school(uuid) 
 GRANT EXECUTE ON FUNCTION private.current_user_can_read_capability_class(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.current_user_can_read_capability_catalog() TO authenticated;
 
--- The API roles receive table privileges only for these capability relations.
--- RLS below is the authorization boundary for RPC and direct table access.
+-- The global capability catalog is migration-maintained. Authenticated callers
+-- may read its RLS-scoped keys, but only the database owner/migration path may
+-- extend or change the catalog. RLS below scopes direct access to persistence.
 REVOKE ALL ON TABLE public.capability_catalog FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.school_capabilities FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.class_capability_overrides FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.school_supervisor_assignments FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA private TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.capability_catalog TO authenticated;
+GRANT SELECT ON TABLE public.capability_catalog TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.school_capabilities TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.class_capability_overrides TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.school_supervisor_assignments TO authenticated;
@@ -251,16 +252,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.school_supervisor_assignmen
 CREATE POLICY capability_catalog_select ON public.capability_catalog
   FOR SELECT TO authenticated
   USING (private.current_user_can_read_capability_catalog());
-CREATE POLICY capability_catalog_insert ON public.capability_catalog
-  FOR INSERT TO authenticated
-  WITH CHECK (public.current_user_active() AND public.current_user_role() = 'admin');
-CREATE POLICY capability_catalog_update ON public.capability_catalog
-  FOR UPDATE TO authenticated
-  USING (public.current_user_active() AND public.current_user_role() = 'admin')
-  WITH CHECK (public.current_user_active() AND public.current_user_role() = 'admin');
-CREATE POLICY capability_catalog_delete ON public.capability_catalog
-  FOR DELETE TO authenticated
-  USING (public.current_user_active() AND public.current_user_role() = 'admin');
 
 CREATE POLICY school_capabilities_select ON public.school_capabilities
   FOR SELECT TO authenticated

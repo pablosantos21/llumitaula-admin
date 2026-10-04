@@ -66,7 +66,7 @@ create table if not exists public.worker_classrooms (
 create table if not exists public.monitors (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
-  school_id uuid references public.schools(id)
+  school_id uuid not null references public.schools(id)
 );
 
 create table if not exists public.monitors_schools (

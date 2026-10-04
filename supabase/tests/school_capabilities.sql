@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(123);
+SELECT plan(127);
 
 SET LOCAL ROLE postgres;
 
@@ -17,7 +17,7 @@ INSERT INTO public.users (id, role, full_name, active) VALUES
   ('00000000-0000-4000-8000-000000000101'::uuid, 'admin', 'Admin', true),
   ('00000000-0000-4000-8000-000000000102'::uuid, 'supervisor', 'Supervisor', true),
   ('00000000-0000-4000-8000-000000000103'::uuid, 'supervisor', 'Unassigned Supervisor', true),
-  -- Parent/monitor access comes from child/class relationships, not school_id.
+  -- Parent access comes from child/class relationships, not users.school_id.
   ('00000000-0000-4000-8000-000000000104'::uuid, 'parent', 'Parent A', true),
   ('00000000-0000-4000-8000-000000000105'::uuid, 'parent', 'Parent B', true),
   ('00000000-0000-4000-8000-000000000106'::uuid, 'monitor', 'Monitor A', true),
@@ -46,8 +46,8 @@ INSERT INTO public.worker_classrooms (worker_id, class_id) VALUES
   ('00000000-0000-4000-8000-000000000110'::uuid, '00000000-0000-4000-8000-000000000301'::uuid);
 
 INSERT INTO public.monitors (id, user_id, school_id) VALUES
-  ('00000000-0000-4000-8000-000000000701'::uuid, '00000000-0000-4000-8000-000000000106'::uuid, NULL),
-  ('00000000-0000-4000-8000-000000000702'::uuid, '00000000-0000-4000-8000-000000000107'::uuid, NULL);
+  ('00000000-0000-4000-8000-000000000701'::uuid, '00000000-0000-4000-8000-000000000106'::uuid, '00000000-0000-4000-8000-000000000201'::uuid),
+  ('00000000-0000-4000-8000-000000000702'::uuid, '00000000-0000-4000-8000-000000000107'::uuid, '00000000-0000-4000-8000-000000000202'::uuid);
 
 INSERT INTO public.monitors_schools (monitor_id, school_id) VALUES
   ('00000000-0000-4000-8000-000000000701'::uuid, '00000000-0000-4000-8000-000000000201'::uuid),
@@ -65,10 +65,13 @@ SELECT ok(
   'capability catalog and persistence tables have RLS enabled'
 );
 SELECT ok(
-  NOT EXISTS (
+  has_table_privilege('authenticated', 'public.capability_catalog', 'SELECT')
+  AND NOT has_table_privilege('authenticated', 'public.capability_catalog', 'INSERT')
+  AND NOT has_table_privilege('authenticated', 'public.capability_catalog', 'UPDATE')
+  AND NOT has_table_privilege('authenticated', 'public.capability_catalog', 'DELETE')
+  AND NOT EXISTS (
     SELECT 1
       FROM (VALUES
-        ('public.capability_catalog'),
         ('public.school_capabilities'),
         ('public.class_capability_overrides'),
         ('public.school_supervisor_assignments')
@@ -86,15 +89,25 @@ SELECT ok(
       ) AS capability_tables(table_name)
      WHERE has_table_privilege('anon', capability_tables.table_name, 'SELECT')
   ),
-  'authenticated callers have the capability table privileges gated by RLS, while anon has none'
+  'authenticated callers have SELECT-only catalog access and RLS-gated persistence privileges, while anon cannot read the tables'
 );
-SELECT is(
+SELECT ok(
   (SELECT count(*) FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename IN ('capability_catalog', 'school_capabilities', 'class_capability_overrides', 'school_supervisor_assignments')
-      AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')),
-  16::bigint,
-  'each new capability table has SELECT, INSERT, UPDATE, and DELETE RLS policies'
+      AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')) = 13
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'capability_catalog'
+       AND cmd IN ('INSERT', 'UPDATE', 'DELETE')
+  ),
+  'the catalog has only its scoped SELECT policy while persistence tables retain their RLS policies'
+);
+SELECT ok(
+  (SELECT bool_and(default_enabled) FROM public.capability_catalog)
+  AND (SELECT count(*) FROM public.capability_catalog) = 3,
+  'initial catalog defaults are all enabled and use the fixed initial key set'
 );
 SELECT ok(
   has_function_privilege('authenticated', 'public.get_effective_capabilities(uuid,uuid)', 'EXECUTE')
@@ -192,14 +205,22 @@ SELECT is(
   'admin can directly delete a class override through RLS'
 );
 
-INSERT INTO public.capability_catalog (capability, default_enabled)
-VALUES ('temporary_catalog_test', true);
-UPDATE public.capability_catalog SET default_enabled = false
- WHERE capability = 'temporary_catalog_test';
-DELETE FROM public.capability_catalog WHERE capability = 'temporary_catalog_test';
-SELECT ok(
-  NOT EXISTS (SELECT 1 FROM public.capability_catalog WHERE capability = 'temporary_catalog_test'),
-  'admin can directly insert, update, and delete catalog rows through RLS'
+SELECT throws_ok(
+  $$INSERT INTO public.capability_catalog (capability, default_enabled)
+    VALUES ('temporary_catalog_test', true)$$,
+  '42501',
+  'an authenticated admin cannot insert a migration-maintained catalog key'
+);
+SELECT throws_ok(
+  $$UPDATE public.capability_catalog SET default_enabled = false
+     WHERE capability = 'family_meal_records'$$,
+  '42501',
+  'an authenticated admin cannot update global catalog defaults'
+);
+SELECT throws_ok(
+  $$DELETE FROM public.capability_catalog WHERE capability = 'family_meal_records'$$,
+  '42501',
+  'an authenticated admin cannot delete a migration-maintained catalog key'
 );
 
 INSERT INTO public.school_supervisor_assignments (school_id, supervisor_id)
@@ -442,8 +463,8 @@ SELECT throws_ok(
   'a legacy padre cannot read a child without a family relationship'
 );
 
--- Monitor access follows monitors_schools, not worker_classrooms, and also
--- works without a users.school_id or a monitors.school_id value.
+-- Monitor access follows the monitor's primary school and monitors_schools,
+-- not worker_classrooms or users.school_id.
 SELECT set_config('request.jwt.claims', json_build_object(
   'sub', '00000000-0000-4000-8000-000000000106', 'role', 'authenticated'
 )::text, true);
@@ -892,6 +913,22 @@ SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities()$$,
   '22023',
   'the effective read contract requires exactly one selected child or class'
+);
+
+-- Catalog extension is a migration/database-owner operation. Invoker reads
+-- automatically include the new key and retain its enabled default.
+SET LOCAL ROLE postgres;
+INSERT INTO public.capability_catalog (capability, default_enabled)
+VALUES ('migration_added_capability', true);
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', '00000000-0000-4000-8000-000000000101', 'role', 'admin'
+)::text, true);
+SELECT is(
+  (SELECT enabled FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000301'::uuid)
+    WHERE capability = 'migration_added_capability'),
+  true,
+  'the invoker effective-settings contract sees a migration-added key with its enabled default'
 );
 
 SET LOCAL ROLE anon;
