@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(127);
+SELECT plan(123);
 
 SET LOCAL ROLE postgres;
 
@@ -23,7 +23,6 @@ INSERT INTO public.users (id, role, full_name, active) VALUES
   ('00000000-0000-4000-8000-000000000106'::uuid, 'monitor', 'Monitor A', true),
   ('00000000-0000-4000-8000-000000000107'::uuid, 'monitor', 'Monitor B', true),
   ('00000000-0000-4000-8000-000000000108'::uuid, 'parent', 'Inactive Parent', false),
-  ('00000000-0000-4000-8000-000000000109'::uuid, 'padre', 'Legacy Padre', true),
   ('00000000-0000-4000-8000-000000000110'::uuid, 'worker', 'Worker A', true);
 
 INSERT INTO public.classes (id, name, school_id) VALUES
@@ -39,7 +38,6 @@ INSERT INTO public.children (id, class_id, name) VALUES
 INSERT INTO public.parents_children (parent_id, child_id) VALUES
   ('00000000-0000-4000-8000-000000000104'::uuid, '00000000-0000-4000-8000-000000000401'::uuid),
   ('00000000-0000-4000-8000-000000000104'::uuid, '00000000-0000-4000-8000-000000000402'::uuid),
-  ('00000000-0000-4000-8000-000000000109'::uuid, '00000000-0000-4000-8000-000000000401'::uuid),
   ('00000000-0000-4000-8000-000000000105'::uuid, '00000000-0000-4000-8000-000000000403'::uuid);
 
 INSERT INTO public.worker_classrooms (worker_id, class_id) VALUES
@@ -435,32 +433,6 @@ SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'family_meal_records', true)$$,
   '42501',
   'a parent cannot write school capabilities'
-);
-
-SELECT set_config('request.jwt.claims', json_build_object(
-  'sub', '00000000-0000-4000-8000-000000000109', 'role', 'authenticated'
-)::text, true);
-SELECT is(
-  (SELECT count(*) FROM public.get_effective_capabilities(p_child_id => '00000000-0000-4000-8000-000000000401'::uuid)),
-  3::bigint,
-  'a related legacy padre can read effective capabilities for their child'
-);
-SELECT is(
-  (SELECT count(*) FROM public.school_capabilities
-    WHERE school_id = '00000000-0000-4000-8000-000000000201'::uuid),
-  3::bigint,
-  'padre RLS reads only school configuration related to its linked child'
-);
-SELECT is(
-  (SELECT count(*) FROM public.school_capabilities
-    WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid),
-  0::bigint,
-  'padre RLS hides a different school configuration'
-);
-SELECT throws_ok(
-  $$SELECT * FROM public.get_effective_capabilities(p_child_id => '00000000-0000-4000-8000-000000000403'::uuid)$$,
-  '42501',
-  'a legacy padre cannot read a child without a family relationship'
 );
 
 -- Monitor access follows the monitor's primary school and monitors_schools,

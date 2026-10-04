@@ -21,7 +21,7 @@ create table if not exists public.schools (
 
 do $$
 begin
-  create type public.user_role as enum ('admin', 'monitor', 'padre', 'parent', 'worker', 'supervisor');
+  create type public.user_role as enum ('admin', 'monitor', 'parent', 'worker', 'supervisor');
 exception when duplicate_object then null;
 end $$;
 
@@ -190,7 +190,7 @@ as $$
                 )
               )
               or (
-                public.current_user_role() in ('parent', 'padre')
+                public.current_user_role() = 'parent'
                 and exists (
                   select 1
                     from public.children ch

@@ -113,7 +113,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $function$
   SELECT public.current_user_active()
-     AND public.current_user_role() IN ('parent', 'padre')
+     AND public.current_user_role() = 'parent'
      AND private.current_user_can_access_child(p_child_id)
      AND EXISTS (
        SELECT 1
@@ -136,7 +136,7 @@ AS $function$
      AND (
        public.current_user_can_manage_school_capabilities(p_school_id)
        OR (
-         public.current_user_role() IN ('parent', 'padre')
+          public.current_user_role() = 'parent'
          AND EXISTS (
            SELECT 1
              FROM public.parents_children pc
@@ -179,7 +179,7 @@ AS $function$
           AND (
             public.current_user_can_manage_school_capabilities(c.school_id)
             OR (
-              public.current_user_role() IN ('parent', 'padre')
+              public.current_user_role() = 'parent'
               AND EXISTS (
                 SELECT 1
                   FROM public.children ch
@@ -480,7 +480,7 @@ BEGIN
 
   IF p_child_id IS NOT NULL THEN
     IF v_role IS NULL
-       OR v_role NOT IN ('parent', 'padre')
+       OR v_role <> 'parent'
        OR NOT private.current_user_can_read_capability_child(p_child_id) THEN
       RAISE EXCEPTION 'Child not found or not accessible'
         USING ERRCODE = '42501';
