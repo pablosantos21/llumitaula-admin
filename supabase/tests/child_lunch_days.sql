@@ -22,10 +22,9 @@ INSERT INTO public.schools (id, name) VALUES
 
 INSERT INTO public.users (id, role, school_id, full_name, active) VALUES
   ('00000000-0000-4000-8000-000000000111'::uuid, 'admin', NULL, 'Lunch Admin', true),
-  -- Legacy single-school scope: classroom policies still read users.school_id.
+  -- School scope for supervisors comes from the assignments below.
   ('00000000-0000-4000-8000-000000000112'::uuid, 'supervisor',
    '00000000-0000-4000-8000-000000000211'::uuid, 'Supervisor A', true),
-  -- Assignment scope: no users.school_id, only an explicit school assignment.
   ('00000000-0000-4000-8000-000000000113'::uuid, 'supervisor', NULL, 'Supervisor B', true),
   ('00000000-0000-4000-8000-000000000114'::uuid, 'monitor', NULL, 'Monitor A', true),
   ('00000000-0000-4000-8000-000000000115'::uuid, 'monitor', NULL, 'Monitor B', true);
@@ -53,6 +52,8 @@ INSERT INTO public.children (id, class_id, name) VALUES
    '00000000-0000-4000-8000-000000000313'::uuid, 'Lunch Child B2');
 
 INSERT INTO public.school_supervisor_assignments (school_id, supervisor_id) VALUES
+  ('00000000-0000-4000-8000-000000000211'::uuid,
+   '00000000-0000-4000-8000-000000000112'::uuid),
   ('00000000-0000-4000-8000-000000000212'::uuid,
    '00000000-0000-4000-8000-000000000113'::uuid);
 
@@ -340,7 +341,7 @@ SELECT is(
 
 SET LOCAL ROLE authenticated;
 
--- ── Supervisor scope: an explicit school assignment ──────────────────────────
+-- ── Supervisor scope: their other school ────────────────────────────────────
 
 SELECT set_config(
   'request.jwt.claims',
@@ -355,7 +356,7 @@ SELECT lives_ok(
   $$INSERT INTO public.child_lunch_days (child_id, school_id, weekdays)
     VALUES ('00000000-0000-4000-8000-000000000415'::uuid,
             '00000000-0000-4000-8000-000000000212'::uuid, '{2,3}')$$,
-  'a supervisor configured through a school assignment configures that school'
+  'a supervisor assigned to the other school configures that school'
 );
 
 SELECT throws_ok(

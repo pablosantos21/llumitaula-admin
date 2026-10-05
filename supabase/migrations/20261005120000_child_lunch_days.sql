@@ -31,9 +31,9 @@ CREATE INDEX child_lunch_days_school_id_idx
 ALTER TABLE public.child_lunch_days ENABLE ROW LEVEL SECURITY;
 
 -- Write scope: administrators, plus the supervisors of the pattern's school.
--- Supervisors reach their school through either scope the app already uses:
--- the classroom policies still read `users.school_id`, while school-level
--- settings use explicit `school_supervisor_assignments`.
+-- A supervisor's school scope is the assignment itself: the live users table
+-- has no school column, so school-level settings are reached only through
+-- `school_supervisor_assignments`.
 CREATE OR REPLACE FUNCTION public.current_user_can_manage_child_lunch_days(p_school_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -46,14 +46,11 @@ AS $function$
        public.current_user_role() = 'admin'
        OR (
          public.current_user_role() = 'supervisor'
-         AND (
-           p_school_id = public.current_user_school_id()
-           OR EXISTS (
-             SELECT 1
-               FROM public.school_supervisor_assignments a
-              WHERE a.school_id = p_school_id
-                AND a.supervisor_id = public.current_user_id()
-           )
+         AND EXISTS (
+           SELECT 1
+             FROM public.school_supervisor_assignments a
+            WHERE a.school_id = p_school_id
+              AND a.supervisor_id = public.current_user_id()
          )
        )
      );
