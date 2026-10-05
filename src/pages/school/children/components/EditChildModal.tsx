@@ -6,7 +6,7 @@ import { Label } from "../../../../components/ui/label"
 import type { Child } from "../../../../services/children.service"
 import type { Class } from "../../../../services/classes.service"
 import type { Allergen } from "../../../../services/allergens.service"
-import { LunchDaysField, type LunchDaysValue } from "./LunchDaysField"
+import { LunchDaysField } from "./LunchDaysField"
 
 interface EditChildModalProps {
     isOpen: boolean
@@ -23,7 +23,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
     const [lastName, setLastName] = useState('')
     const [classId, setClassId] = useState('')
     const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
-    const [lunchDays, setLunchDays] = useState<LunchDaysValue>({ configured: false, days: [] })
+    const [lunchDays, setLunchDays] = useState<number[] | null>(null)
 
     /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
@@ -34,10 +34,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
             setSelectedAllergens(
                 child.child_allergens?.map(a => a.allergen_id) || []
             )
-            setLunchDays({
-                configured: child.lunch_weekdays !== null,
-                days: child.lunch_weekdays ?? [],
-            })
+            setLunchDays(child.lunch_weekdays)
         }
     }, [child, isOpen])
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -61,7 +58,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
                     class_id: classId,
                 },
                 selectedAllergens,
-                lunchDays.configured ? lunchDays.days : null
+                lunchDays
             )
             if (saved) onClose()
         }
@@ -140,7 +137,6 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
                 </div>
 
                 <LunchDaysField
-                    idPrefix="edit"
                     value={lunchDays}
                     onChange={setLunchDays}
                 />

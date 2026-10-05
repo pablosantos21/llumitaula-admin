@@ -5,7 +5,7 @@ import { Input } from "../../../../components/ui/input"
 import { Label } from "../../../../components/ui/label"
 import type { Class } from "../../../../services/classes.service"
 import type { Allergen } from "../../../../services/allergens.service"
-import { LunchDaysField, type LunchDaysValue } from "./LunchDaysField"
+import { LunchDaysField } from "./LunchDaysField"
 
 interface AddChildModalProps {
     isOpen: boolean
@@ -21,7 +21,7 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
     const [lastName, setLastName] = useState('')
     const [classId, setClassId] = useState('')
     const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
-    const [lunchDays, setLunchDays] = useState<LunchDaysValue>({ configured: false, days: [] })
+    const [lunchDays, setLunchDays] = useState<number[] | null>(null)
 
     const toggleAllergen = (allergenId: string) => {
         setSelectedAllergens(prev =>
@@ -40,7 +40,7 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
             last_name: lastName,
             class_id: classId,
             allergenIds: selectedAllergens,
-            lunch_weekdays: lunchDays.configured ? lunchDays.days : null,
+            lunch_weekdays: lunchDays,
         })
 
         if (saved) {
@@ -48,7 +48,7 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
             setLastName('')
             setClassId('')
             setSelectedAllergens([])
-            setLunchDays({ configured: false, days: [] })
+            setLunchDays(null)
             onClose()
         }
     }
@@ -126,7 +126,6 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
                 </div>
 
                 <LunchDaysField
-                    idPrefix="add"
                     value={lunchDays}
                     onChange={setLunchDays}
                 />

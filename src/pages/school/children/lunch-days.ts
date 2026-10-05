@@ -37,6 +37,6 @@ export function summarizeLunchWeekdays(days: number[] | null): LunchDaysSummary 
             .filter(day => days.includes(day.value))
             .map(day => day.short)
             .join(', '),
-        className: 'bg-green-100 text-green-800',
+            className: 'bg-primary-50 text-primary-700',
     }
 }

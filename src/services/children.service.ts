@@ -48,11 +48,6 @@ export interface ChildWithSchool {
     } | null;
 }
 
-const normalizeWeekdays = (weekdays: number[]): number[] =>
-    [...new Set(weekdays)]
-        .filter(day => day >= 1 && day <= 5)
-        .sort((a, b) => a - b);
-
 export const ChildService = {
     getChildrenBySchool: async (schoolId: string): Promise<Child[]> => {
         const [childrenResult, lunchDaysResult] = await Promise.all([
@@ -214,7 +209,7 @@ export const ChildService = {
             .upsert({
                 child_id: childId,
                 school_id: schoolId,
-                weekdays: normalizeWeekdays(weekdays),
+                weekdays,
             });
 
         if (error) {

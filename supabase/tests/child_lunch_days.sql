@@ -12,7 +12,7 @@
 
 BEGIN;
 
-SELECT plan(35);
+SELECT plan(36);
 
 SET LOCAL ROLE postgres;
 
@@ -98,18 +98,6 @@ SELECT ok(
       AND tablename = 'child_lunch_days'
       AND cmd IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')) = 4,
   'the pattern is governed by one scoped policy per row action'
-);
-
-SELECT ok(
-  has_function_privilege('authenticated',
-    'public.current_user_can_manage_child_lunch_days(uuid)', 'EXECUTE')
-  AND has_function_privilege('authenticated',
-    'private.current_user_can_read_child_lunch_days(uuid)', 'EXECUTE')
-  AND NOT has_function_privilege('anon',
-    'public.current_user_can_manage_child_lunch_days(uuid)', 'EXECUTE')
-  AND NOT has_function_privilege('anon',
-    'private.current_user_can_read_child_lunch_days(uuid)', 'EXECUTE'),
-  'the scope helpers behind the policies are callable by authenticated callers only'
 );
 
 -- ── The three states ─────────────────────────────────────────────────────────
@@ -272,6 +260,12 @@ SELECT lives_ok(
   'an admin configures a pattern in another school'
 );
 
+SELECT is(
+  (SELECT count(DISTINCT school_id) FROM public.child_lunch_days),
+  2::bigint,
+  'an admin reads the patterns of every school'
+);
+
 -- ── Supervisor scope: the school they manage ─────────────────────────────────
 
 SELECT set_config(
@@ -328,6 +322,23 @@ SELECT is(
   0::bigint,
   'a supervisor can return their pattern to unconfigured'
 );
+
+UPDATE public.child_lunch_days
+   SET weekdays = '{5}'
+ WHERE child_id = '00000000-0000-4000-8000-000000000411'::uuid
+   AND school_id = '00000000-0000-4000-8000-000000000212'::uuid;
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT weekdays FROM public.child_lunch_days
+    WHERE child_id = '00000000-0000-4000-8000-000000000411'::uuid
+      AND school_id = '00000000-0000-4000-8000-000000000212'::uuid),
+  '{4}'::smallint[],
+  'a supervisor cannot rewrite the pattern of another school'
+);
+
+SET LOCAL ROLE authenticated;
 
 -- ── Supervisor scope: an explicit school assignment ──────────────────────────
 

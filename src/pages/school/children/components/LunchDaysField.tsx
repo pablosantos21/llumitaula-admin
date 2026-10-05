@@ -1,81 +1,69 @@
+import { useId } from "react"
 import { Label } from "../../../../components/ui/label"
 import { LUNCH_WEEKDAYS } from "../lunch-days"
 
-export interface LunchDaysValue {
-    configured: boolean
-    days: number[]
-}
-
 interface LunchDaysFieldProps {
-    idPrefix: string
-    value: LunchDaysValue
-    onChange: (value: LunchDaysValue) => void
+    value: number[] | null
+    onChange: (value: number[] | null) => void
 }
 
-export function LunchDaysField({ idPrefix, value, onChange }: LunchDaysFieldProps) {
+const pillClass = (active: boolean) => `inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors ${
+    active
+        ? 'bg-primary-50 text-primary-700 border-primary-300'
+        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+}`
+
+export function LunchDaysField({ value, onChange }: LunchDaysFieldProps) {
+    const modeName = useId()
+    const configured = value !== null
+    const days = value ?? []
+
     const toggleDay = (dayValue: number) => {
-        onChange({
-            ...value,
-            days: value.days.includes(dayValue)
-                ? value.days.filter(day => day !== dayValue)
-                : [...value.days, dayValue],
-        })
+        onChange(
+            days.includes(dayValue)
+                ? days.filter(day => day !== dayValue)
+                : [...days, dayValue]
+        )
     }
 
     return (
         <div className="space-y-2">
             <Label>Días habituales de comedor</Label>
             <div className="flex flex-wrap gap-2">
-                <label
-                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors ${
-                        !value.configured
-                            ? 'bg-primary-50 text-primary-700 border-primary-300'
-                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                    }`}
-                >
+                <label className={pillClass(!configured)}>
                     <input
                         type="radio"
-                        name={`${idPrefix}-lunch-mode`}
+                        name={modeName}
                         className="sr-only"
-                        checked={!value.configured}
-                        onChange={() => onChange({ ...value, configured: false })}
+                        checked={!configured}
+                        onChange={() => onChange(null)}
                     />
                     Sin configurar
                 </label>
-                <label
-                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors ${
-                        value.configured
-                            ? 'bg-primary-50 text-primary-700 border-primary-300'
-                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                    }`}
-                >
+                <label className={pillClass(configured)}>
                     <input
                         type="radio"
-                        name={`${idPrefix}-lunch-mode`}
+                        name={modeName}
                         className="sr-only"
-                        checked={value.configured}
-                        onChange={() => onChange({ ...value, configured: true })}
+                        checked={configured}
+                        onChange={() => onChange(days)}
                     />
                     Configurar días
                 </label>
             </div>
 
-            {value.configured && (
+            {configured && (
                 <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                         {LUNCH_WEEKDAYS.map(day => (
                             <label
                                 key={day.value}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors ${
-                                    value.days.includes(day.value)
-                                        ? 'bg-primary-50 text-primary-700 border-primary-300'
-                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                                }`}
+                                className={pillClass(days.includes(day.value))}
                             >
                                 <input
                                     type="checkbox"
                                     className="sr-only"
-                                    checked={value.days.includes(day.value)}
+                                    checked={days.includes(day.value)}
                                     onChange={() => toggleDay(day.value)}
                                 />
                                 {day.name}
