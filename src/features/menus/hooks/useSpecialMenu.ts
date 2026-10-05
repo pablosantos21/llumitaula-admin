@@ -145,10 +145,9 @@ export const useSpecialMenu = (menuId: string) => {
                     dessert: fields.dessert,
                 }
 
-                const savedMenu = await MenuService.upsertMenu(menuData)
-
-                await MenuService.assignMenuToSchools(
-                    savedMenu.id,
+                await MenuService.saveMenuWithSchools(
+                    undefined,
+                    menuData,
                     schoolIds,
                     date
                 )

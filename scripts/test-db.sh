@@ -50,6 +50,8 @@ echo "Using scratch database:   $DATABASE"
 MIGRATIONS=(
   "20260916110000_device_config_code_six_characters.sql"
   "20260916120000_device_claim_history.sql"
+  "20260925153248_allow_menus_shared_across_schools.sql"
+  "20260925153953_save_menu_with_schools.sql"
   "20261004120000_school_capabilities.sql"
   "20261005120000_child_lunch_days.sql"
 )

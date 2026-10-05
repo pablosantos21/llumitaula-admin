@@ -102,72 +102,36 @@ export const MenuService = {
         });
     },
 
-    upsertMenu: async (menu: any): Promise<any> => {
-        const { id, ...menuData } = menu;
-
-        // Ensure we are using the English field names for the DB
-        const dbData = {
-            ...menuData,
-            // If they are passed as Spanish, map them
-            first_course: menuData.first_course || menuData.primero,
-            second_course: menuData.second_course || menuData.segundo,
-            side: menuData.side || menuData.guarnicion,
-            salad: menuData.salad || menuData.ensalada,
-            dessert: menuData.dessert || menuData.postre,
-        };
-
-        // Remove Spanish keys if they exist to avoid DB errors
-        delete (dbData as any).primero;
-        delete (dbData as any).segundo;
-        delete (dbData as any).guarnicion;
-        delete (dbData as any).ensalada;
-        delete (dbData as any).postre;
-
-        const { data, error } = await supabase
-            .from('menus')
-            .upsert(id ? { id, ...dbData } : dbData)
-            .select()
-            .single();
+    saveMenuWithSchools: async (
+        menuId: string | undefined,
+        menu: any,
+        schoolIds: string[],
+        date: string
+    ): Promise<string> => {
+        // The DB stores the English field names; the forms still send the
+        // bilingual shape, so map the Spanish aliases before saving. The menu
+        // and its schools go in a single call so a failed school never leaves a
+        // menu without schools.
+        const { data, error } = await supabase.rpc('save_menu_with_schools', {
+            p_menu_id: menuId ?? null,
+            p_menu: {
+                type: menu.type || 'normal',
+                first_course: menu.first_course || menu.primero || '',
+                second_course: menu.second_course || menu.segundo || '',
+                side: menu.side || menu.guarnicion || null,
+                salad: menu.salad || menu.ensalada || null,
+                dessert: menu.dessert || menu.postre || null
+            },
+            p_school_ids: schoolIds,
+            p_date: date
+        });
 
         if (error) {
-            console.error('Error upserting menu:', error);
+            console.error('Error saving menu:', error);
             throw new Error(error.message);
         }
 
-        return data;
-    },
-
-    assignMenuToSchools: async (menuId: string, schoolIds: string[], date: string): Promise<void> => {
-        // First, we might want to remove existing assignments for these schools on this date
-        // But only for the same menu type? This is tricky without knowing the type.
-        // For now, let's just delete assignments for this specific menu and date to refresh them
-        const { error: deleteError } = await supabase
-            .from('menus_schools')
-            .delete()
-            .eq('menu_id', menuId)
-            .eq('date', date);
-
-        if (deleteError) {
-            console.error('Error deleting old assignments:', deleteError);
-            throw new Error(deleteError.message);
-        }
-
-        if (schoolIds.length === 0) return;
-
-        const assignments = schoolIds.map(school_id => ({
-            menu_id: menuId,
-            school_id,
-            date
-        }));
-
-        const { error: insertError } = await supabase
-            .from('menus_schools')
-            .insert(assignments);
-
-        if (insertError) {
-            console.error('Error inserting assignments:', insertError);
-            throw new Error(insertError.message);
-        }
+        return data as string;
     },
 
     getMenuWithSchools: async (menuId: string): Promise<{

@@ -1,11 +1,12 @@
--- Minimal fixture schema for the admin device config-code contract tests.
+-- Minimal fixture schema for the admin device config-code and menus contract
+-- tests.
 --
 -- The real tenant schema lives on the shared project (worker base migrations +
 -- live remote baseline), so the full admin migration set cannot be applied on
--- a bare Postgres. This file reproduces only the objects the two admin RPC
--- migrations under test depend on, so the pgTAP suite can run against a
--- deterministic scratch database. Column shapes mirror the migration that
--- originally created each object.
+-- a bare Postgres. This file reproduces only the objects the admin migrations
+-- under test depend on, so the pgTAP suite can run against a deterministic
+-- scratch database. Column shapes mirror the migration that originally created
+-- each object.
 --
 -- The `auth` schema (auth.users, auth.jwt(), auth.uid()) is imported by
 -- scripts/test-db.sh before this file runs. pgcrypto (digest, etc.) mirrors
@@ -91,6 +92,56 @@ create table if not exists public.devices (
   revoked_at timestamptz,
   revoked boolean not null default false
 );
+
+-- Menus mirror the shared schema: `menus` holds the dishes and `menus_schools`
+-- associates a menu with a school and a date. A menu is a logical row shared by
+-- every school it is served at, so the tenancy trigger below (remote migration
+-- 20260918104703_fix_menus_schools_insert_recursion) is part of the fixture: the
+-- contract test must fail while it exists and pass once the fix migration drops
+-- it.
+create table if not exists public.menus (
+  id uuid primary key default gen_random_uuid(),
+  first_course text not null,
+  second_course text not null,
+  side text,
+  salad text,
+  dessert text,
+  type text not null
+);
+
+create table if not exists public.menus_schools (
+  menu_id uuid not null references public.menus(id) on delete cascade,
+  school_id uuid not null references public.schools(id) on delete cascade,
+  date date not null default current_date,
+  primary key (menu_id, school_id)
+);
+
+create or replace function public.enforce_menu_school_tenant()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public, pg_temp
+as $$
+begin
+  perform pg_advisory_xact_lock(2147483647, 42042);
+
+  if new.school_id is null or exists (
+    select 1
+      from public.menus_schools ms
+     where ms.menu_id = new.menu_id
+       and ms.school_id is distinct from new.school_id
+  ) then
+    raise exception 'menus_schools cannot associate a menu across schools'
+      using errcode = '23514';
+  end if;
+
+  return new;
+end
+$$;
+
+create trigger menus_schools_same_school
+  before insert or update on public.menus_schools
+  for each row execute function public.enforce_menu_school_tenant();
 
 -- Same definition as admin migration 20260824150000 (workers administration).
 create or replace function public.current_user_school_id()

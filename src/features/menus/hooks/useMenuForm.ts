@@ -77,10 +77,9 @@ export const useMenuForm = (selectedDate: Date | null, onSaveSuccess: () => void
                 dessert: formData.dessert,
             };
 
-            const savedMenu = await MenuService.upsertMenu(menuData);
-
-            await MenuService.assignMenuToSchools(
-                savedMenu.id,
+            await MenuService.saveMenuWithSchools(
+                formData.id,
+                menuData,
                 formData.schoolIds,
                 formatDate(selectedDate)
             );

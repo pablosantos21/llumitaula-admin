@@ -6,9 +6,10 @@ import { AllergenService, type Allergen } from '../../../services/allergens.serv
 import { DataTable } from '../../../components/ui/data-table'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
-import { Plus, Search, Eye, Edit2, Loader2, Power } from 'lucide-react'
+import { Plus, Search, Edit2, Loader2, Trash2 } from 'lucide-react'
 import { EditChildModal } from './components/EditChildModal'
 import { AddChildModal } from './components/AddChildModal'
+import { DeleteChildModal } from './components/DeleteChildModal'
 import { summarizeLunchWeekdays } from './lunch-days'
 
 export default function ChildrenPage() {
@@ -19,10 +20,12 @@ export default function ChildrenPage() {
     const [error, setError] = useState<string | null>(null)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [editingChild, setEditingChild] = useState<Child | null>(null)
+    const [childToDelete, setChildToDelete] = useState<Child | null>(null)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [classes, setClasses] = useState<Class[]>([])
     const [allergens, setAllergens] = useState<Allergen[]>([])
     const [isSaving, setIsSaving] = useState(false)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchData = async () => {
@@ -54,6 +57,7 @@ export default function ChildrenPage() {
     }, [schoolId])
 
     const filteredChildren = children.filter(child => {
+        if (!child.is_active) return false
         const fullName = `${child.first_name} ${child.last_name}`.toLowerCase()
         const className = child.classes?.name.toLowerCase() || ''
         const search = searchTerm.toLowerCase()
@@ -121,18 +125,16 @@ export default function ChildrenPage() {
         }
     }
 
-    const handleToggleChild = async (child: Child) => {
+    const handleDeleteChild = async (childId: string) => {
         try {
             setIsSaving(true)
             setError(null)
-            const updated = await ChildService.setChildActive(child.id, !child.is_active)
-            setChildren(prev => prev.map(current => current.id === updated.id
-                ? { ...current, is_active: updated.is_active }
-                : current
-            ))
+            await ChildService.setChildActive(childId, false)
+            setChildren(prev => prev.filter(current => current.id !== childId))
+            setChildToDelete(null)
         } catch (err) {
-            console.error('Error changing child active state:', err)
-            setError('No se pudo cambiar el estado del niño')
+            console.error('Error deleting child:', err)
+            setDeleteError('No se pudo eliminar al niño')
         } finally {
             setIsSaving(false)
         }
@@ -179,46 +181,30 @@ export default function ChildrenPage() {
             }
         },
         {
-            header: 'Estado',
-            accessor: (child: Child) => (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${child.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                    {child.is_active ? 'Activo' : 'Inactivo'}
-                </span>
-            )
-        },
-        {
-            header: 'Fecha de Alta',
-            accessor: (child: Child) => (
-                <span className="text-xs text-gray-500">
-                    {new Date(child.created_at).toLocaleDateString()}
-                </span>
-            )
-        },
-        {
             header: 'Acciones',
             className: 'text-right',
             accessor: (child: Child) => (
                 <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-600 hover:bg-primary-50">
-                        <Eye className="h-4 w-4" />
-                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-gray-500 hover:text-primary-600"
+                        title="Editar"
                         onClick={() => setEditingChild(child)}
+                        disabled={isSaving}
                     >
                         <Edit2 className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className={`h-8 w-8 ${child.is_active ? 'text-gray-400 hover:text-red-600' : 'text-green-600 hover:text-green-700'}`}
-                        title={child.is_active ? 'Desactivar' : 'Activar'}
-                        onClick={() => handleToggleChild(child)}
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        title="Eliminar"
+                        aria-label="Eliminar"
+                        onClick={() => { setChildToDelete(child); setDeleteError(null) }}
                         disabled={isSaving}
                     >
-                        <Power className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>
             )
@@ -295,6 +281,15 @@ export default function ChildrenPage() {
                 allergens={allergens}
                 isLoading={isSaving}
                 onSave={handleCreateChild}
+            />
+
+            <DeleteChildModal
+                isOpen={!!childToDelete}
+                onClose={() => { if (!isSaving) { setChildToDelete(null); setDeleteError(null) } }}
+                child={childToDelete}
+                isLoading={isSaving}
+                error={deleteError}
+                onConfirm={handleDeleteChild}
             />
 
         </div>
