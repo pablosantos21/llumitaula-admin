@@ -5,6 +5,7 @@ import { Input } from "../../../../components/ui/input"
 import { Label } from "../../../../components/ui/label"
 import type { Class } from "../../../../services/classes.service"
 import type { Allergen } from "../../../../services/allergens.service"
+import { LunchDaysField, type LunchDaysValue } from "./LunchDaysField"
 
 interface AddChildModalProps {
     isOpen: boolean
@@ -12,7 +13,7 @@ interface AddChildModalProps {
     classes: Class[]
     allergens: Allergen[]
     isLoading?: boolean
-    onSave: (child: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }) => Promise<boolean>
+    onSave: (child: { first_name: string; last_name: string; class_id: string; allergenIds: string[]; lunch_weekdays: number[] | null }) => Promise<boolean>
 }
 
 export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, onSave }: AddChildModalProps) {
@@ -20,6 +21,7 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
     const [lastName, setLastName] = useState('')
     const [classId, setClassId] = useState('')
     const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
+    const [lunchDays, setLunchDays] = useState<LunchDaysValue>({ configured: false, days: [] })
 
     const toggleAllergen = (allergenId: string) => {
         setSelectedAllergens(prev =>
@@ -38,6 +40,7 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
             last_name: lastName,
             class_id: classId,
             allergenIds: selectedAllergens,
+            lunch_weekdays: lunchDays.configured ? lunchDays.days : null,
         })
 
         if (saved) {
@@ -45,6 +48,7 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
             setLastName('')
             setClassId('')
             setSelectedAllergens([])
+            setLunchDays({ configured: false, days: [] })
             onClose()
         }
     }
@@ -120,6 +124,12 @@ export function AddChildModal({ isOpen, onClose, classes, allergens, isLoading, 
                         </div>
                     )}
                 </div>
+
+                <LunchDaysField
+                    idPrefix="add"
+                    value={lunchDays}
+                    onChange={setLunchDays}
+                />
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>

@@ -6,6 +6,7 @@ import { Label } from "../../../../components/ui/label"
 import type { Child } from "../../../../services/children.service"
 import type { Class } from "../../../../services/classes.service"
 import type { Allergen } from "../../../../services/allergens.service"
+import { LunchDaysField, type LunchDaysValue } from "./LunchDaysField"
 
 interface EditChildModalProps {
     isOpen: boolean
@@ -14,7 +15,7 @@ interface EditChildModalProps {
     classes: Class[]
     allergens: Allergen[]
     isLoading?: boolean
-    onSave: (updatedChild: Child, allergenIds: string[]) => Promise<boolean>
+    onSave: (updatedChild: Child, allergenIds: string[], lunch_weekdays: number[] | null) => Promise<boolean>
 }
 
 export function EditChildModal({ isOpen, onClose, child, classes, allergens, isLoading, onSave }: EditChildModalProps) {
@@ -22,6 +23,7 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
     const [lastName, setLastName] = useState('')
     const [classId, setClassId] = useState('')
     const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
+    const [lunchDays, setLunchDays] = useState<LunchDaysValue>({ configured: false, days: [] })
 
     /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
@@ -32,6 +34,10 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
             setSelectedAllergens(
                 child.child_allergens?.map(a => a.allergen_id) || []
             )
+            setLunchDays({
+                configured: child.lunch_weekdays !== null,
+                days: child.lunch_weekdays ?? [],
+            })
         }
     }, [child, isOpen])
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -54,7 +60,8 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
                     last_name: lastName,
                     class_id: classId,
                 },
-                selectedAllergens
+                selectedAllergens,
+                lunchDays.configured ? lunchDays.days : null
             )
             if (saved) onClose()
         }
@@ -131,6 +138,12 @@ export function EditChildModal({ isOpen, onClose, child, classes, allergens, isL
                         </div>
                     )}
                 </div>
+
+                <LunchDaysField
+                    idPrefix="edit"
+                    value={lunchDays}
+                    onChange={setLunchDays}
+                />
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>

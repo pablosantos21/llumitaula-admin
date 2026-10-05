@@ -8,6 +8,7 @@ export interface Child {
     class_id: string;
     is_active: boolean;
     created_at: string;
+    lunch_weekdays: number[] | null;
     classes?: {
         id: string;
         name: string;
@@ -20,6 +21,8 @@ export interface Child {
         }
     }[]
 }
+
+export type ChildRow = Omit<Child, 'lunch_weekdays'>;
 
 export interface ChildWithSchool {
     id: string;
@@ -45,42 +48,65 @@ export interface ChildWithSchool {
     } | null;
 }
 
+const normalizeWeekdays = (weekdays: number[]): number[] =>
+    [...new Set(weekdays)]
+        .filter(day => day >= 1 && day <= 5)
+        .sort((a, b) => a - b);
+
 export const ChildService = {
     getChildrenBySchool: async (schoolId: string): Promise<Child[]> => {
-        const { data, error } = await supabase
-            .from('children')
-            .select(`
-                id,
-                first_name,
-                last_name,
-                class_id,
-                is_active,
-                created_at,
-                classes!inner(
+        const [childrenResult, lunchDaysResult] = await Promise.all([
+            supabase
+                .from('children')
+                .select(`
                     id,
-                    name,
-                    school_id
-                ),
-                child_allergens(
-                    allergen_id,
-                    allergens(
+                    first_name,
+                    last_name,
+                    class_id,
+                    is_active,
+                    created_at,
+                    classes!inner(
                         id,
-                        name
+                        name,
+                        school_id
+                    ),
+                    child_allergens(
+                        allergen_id,
+                        allergens(
+                            id,
+                            name
+                        )
                     )
-                )
-            `)
-            .eq('classes.school_id', schoolId)
-            .order('first_name');
+                `)
+                .eq('classes.school_id', schoolId)
+                .order('first_name'),
+            supabase
+                .from('child_lunch_days')
+                .select('child_id, weekdays')
+                .eq('school_id', schoolId),
+        ]);
 
-        if (error) {
-            console.error('Error fetching children:', error);
-            throw new Error(error.message);
+        if (childrenResult.error) {
+            console.error('Error fetching children:', childrenResult.error);
+            throw new Error(childrenResult.error.message);
         }
 
-        return (data as unknown as Child[]) || [];
+        if (lunchDaysResult.error) {
+            console.error('Error fetching lunch days:', lunchDaysResult.error);
+            throw new Error(lunchDaysResult.error.message);
+        }
+
+        const weekdaysByChild = new Map<string, number[]>(
+            (lunchDaysResult.data || []).map((row: any) => [row.child_id, row.weekdays as number[]])
+        );
+
+        return ((childrenResult.data as unknown as Child[]) || []).map(child => ({
+            ...child,
+            lunch_weekdays: weekdaysByChild.get(child.id) ?? null,
+        }));
     },
 
-    createChild: async (child: Omit<Child, 'id' | 'created_at' | 'classes' | 'child_allergens' | 'is_active'>): Promise<Child> => {
+    createChild: async (child: Omit<Child, 'id' | 'created_at' | 'classes' | 'child_allergens' | 'is_active' | 'lunch_weekdays'>): Promise<ChildRow> => {
         const { data, error } = await supabase
             .from('children')
             .insert([child])
@@ -95,7 +121,7 @@ export const ChildService = {
         return data;
     },
 
-    updateChild: async (id: string, updates: Partial<Child>): Promise<Child> => {
+    updateChild: async (id: string, updates: Partial<ChildRow>): Promise<ChildRow> => {
         const { data, error } = await supabase
             .from('children')
             .update(updates)
@@ -111,7 +137,7 @@ export const ChildService = {
         return data;
     },
 
-    setChildActive: async (id: string, isActive: boolean): Promise<Child> => {
+    setChildActive: async (id: string, isActive: boolean): Promise<ChildRow> => {
         const { data, error } = await supabase
             .from('children')
             .update({ is_active: isActive })
@@ -164,6 +190,36 @@ export const ChildService = {
                 console.error('Error inserting child allergens:', insertError);
                 throw new Error(insertError.message);
             }
+        }
+    },
+
+    saveChildLunchDays: async (childId: string, schoolId: string, weekdays: number[] | null): Promise<void> => {
+        if (weekdays === null) {
+            const { error } = await supabase
+                .from('child_lunch_days')
+                .delete()
+                .eq('child_id', childId)
+                .eq('school_id', schoolId);
+
+            if (error) {
+                console.error('Error clearing child lunch days:', error);
+                throw new Error(error.message);
+            }
+
+            return;
+        }
+
+        const { error } = await supabase
+            .from('child_lunch_days')
+            .upsert({
+                child_id: childId,
+                school_id: schoolId,
+                weekdays: normalizeWeekdays(weekdays),
+            });
+
+        if (error) {
+            console.error('Error saving child lunch days:', error);
+            throw new Error(error.message);
         }
     },
 

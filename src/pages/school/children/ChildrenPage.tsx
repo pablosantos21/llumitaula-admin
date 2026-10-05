@@ -9,6 +9,7 @@ import { Input } from '../../../components/ui/input'
 import { Plus, Search, Eye, Edit2, Loader2, Power } from 'lucide-react'
 import { EditChildModal } from './components/EditChildModal'
 import { AddChildModal } from './components/AddChildModal'
+import { summarizeLunchWeekdays } from './lunch-days'
 
 export default function ChildrenPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
@@ -71,16 +72,19 @@ export default function ChildrenPage() {
         ].map(cls => [cls.id, cls])).values())
         : activeClasses
 
-    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[] }): Promise<boolean> => {
+    const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[]; lunch_weekdays: number[] | null }): Promise<boolean> => {
         try {
             setIsSaving(true)
             setError(null)
-            const { allergenIds, ...childData } = newChildData
+            const { allergenIds, lunch_weekdays, ...childData } = newChildData
             const created = await ChildService.createChild(childData)
             if (allergenIds.length > 0) {
                 await ChildService.setChildAllergens(created.id, allergenIds)
             }
             if (schoolId) {
+                if (lunch_weekdays !== null) {
+                    await ChildService.saveChildLunchDays(created.id, schoolId, lunch_weekdays)
+                }
                 const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
                 setChildren(updatedChildren)
             }
@@ -94,7 +98,7 @@ export default function ChildrenPage() {
         }
     }
 
-    const handleUpdateChild = async (updatedChild: Child, allergenIds: string[]): Promise<boolean> => {
+    const handleUpdateChild = async (updatedChild: Child, allergenIds: string[], lunch_weekdays: number[] | null): Promise<boolean> => {
         try {
             setIsSaving(true)
             setError(null)
@@ -103,6 +107,7 @@ export default function ChildrenPage() {
             await ChildService.updateChild(id, updates)
             await ChildService.setChildAllergens(id, allergenIds)
             if (schoolId) {
+                await ChildService.saveChildLunchDays(id, schoolId, lunch_weekdays)
                 const updatedChildren = await ChildService.getChildrenBySchool(schoolId)
                 setChildren(updatedChildren)
             }
@@ -158,6 +163,17 @@ export default function ChildrenPage() {
                 return (
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${hasAllergens ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
                         {hasAllergens ? `Sí (${child.child_allergens!.length})` : 'No'}
+                    </span>
+                )
+            }
+        },
+        {
+            header: 'Comedor habitual',
+            accessor: (child: Child) => {
+                const { label, className } = summarizeLunchWeekdays(child.lunch_weekdays)
+                return (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${className}`}>
+                        {label}
                     </span>
                 )
             }
