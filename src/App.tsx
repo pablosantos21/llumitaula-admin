@@ -11,6 +11,7 @@ import IncidentsPage from './pages/school/incidents/IncidentsPage'
 import ClassesPage from './pages/school/classes/ClassesPage'
 import DevicesPage from './pages/school/devices/DevicesPage'
 import MealHistoryPage from './pages/school/history/MealHistoryPage'
+import AttendancePage from './pages/school/attendance/AttendancePage'
 
 // Protected Route Wrapper
 function ProtectedRoute() {
@@ -64,6 +65,7 @@ function App() {
                 <Route path="classes" element={<ClassesPage />} />
                 <Route path="devices" element={<DevicesPage />} />
                 <Route path="history" element={<MealHistoryPage />} />
+                <Route path="attendance" element={<AttendancePage />} />
               </Route>
             </Route>
           </Route>

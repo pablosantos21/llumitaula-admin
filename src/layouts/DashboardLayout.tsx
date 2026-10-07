@@ -14,6 +14,7 @@ import {
     Loader2,
     Smartphone
     , History
+    , ClipboardCheck
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '../lib/utils';
@@ -52,6 +53,7 @@ export default function DashboardLayout() {
         { name: 'Aulas', href: `/school/${schoolId}/classes`, icon: SchoolIcon },
         { name: 'Dispositivos', href: `/school/${schoolId}/devices`, icon: Smartphone },
         { name: 'Historial', href: `/school/${schoolId}/history`, icon: History },
+        { name: 'Asistencia', href: `/school/${schoolId}/attendance`, icon: ClipboardCheck },
     ];
 
     const handleLogout = async () => {
