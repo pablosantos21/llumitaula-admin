@@ -7,6 +7,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Badge } from '../../../components/ui/badge';
 import { ClassService, type Class } from '../../../services/classes.service';
+import { ChildService, type Child } from '../../../services/children.service';
 import { AttendanceService, type AttendanceRecord } from '../../../services/attendance.service';
 import { getConfirmationMeta, summarizeDailyAttendance } from '../../../lib/attendance';
 
@@ -21,6 +22,7 @@ export default function AttendancePage() {
     const { schoolId } = useParams<{ schoolId: string }>();
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
+    const [children, setChildren] = useState<Child[]>([]);
     const [selectedDate, setSelectedDate] = useState(todayLocal());
     const [selectedClassId, setSelectedClassId] = useState('');
     const [onlyPresent, setOnlyPresent] = useState(false);
@@ -37,16 +39,18 @@ export default function AttendancePage() {
             }
             try {
                 setIsLoading(true);
-                const [attendance, classData] = await Promise.all([
+                const [attendance, classData, childData] = await Promise.all([
                     AttendanceService.getBySchool(schoolId, {
                         date: selectedDate || undefined,
                         classId: selectedClassId || undefined,
                     }),
                     ClassService.getClassesBySchool(schoolId),
+                    ChildService.getChildrenBySchool(schoolId),
                 ]);
                 if (current) {
                     setRecords(attendance);
                     setClasses(classData);
+                    setChildren(childData);
                     setError(null);
                 }
             } catch (err) {
@@ -66,6 +70,10 @@ export default function AttendancePage() {
     const confirmation = useMemo(() => getConfirmationMeta(records), [records]);
     const isSingleList = selectedDate !== '' && selectedClassId !== '';
     const attributableConfirmation = isSingleList ? confirmation : null;
+    const selectedClassChildCount = selectedClassId
+        ? children.filter(child => child.class_id === selectedClassId).length
+        : null;
+    const isZeroEnrollment = records.length === 0 && selectedClassChildCount === 0;
     const visibleRecords = useMemo(
         () => (onlyPresent ? records.filter(record => record.present) : records),
         [records, onlyPresent],
@@ -95,6 +103,13 @@ export default function AttendancePage() {
     ];
 
     const summaryBanner = () => {
+        if (isZeroEnrollment) {
+            return (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600" role="status">
+                    Esta aula no tiene alumnos registrados.
+                </div>
+            );
+        }
         if (summary.status === 'never-passed') {
             return (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600" role="status">
@@ -186,9 +201,11 @@ export default function AttendancePage() {
                     columns={columns}
                     data={visibleRecords}
                     emptyMessage={
-                        summary.status === 'never-passed'
-                            ? 'No hay lista confirmada para estos filtros.'
-                            : 'Ningún registro coincide con los filtros.'
+                        isZeroEnrollment
+                            ? 'Esta aula no tiene alumnos registrados.'
+                            : summary.status === 'never-passed'
+                              ? 'No hay lista confirmada para estos filtros.'
+                              : 'Ningún registro coincide con los filtros.'
                     }
                 />
             )}
