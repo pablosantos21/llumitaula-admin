@@ -21,7 +21,7 @@ interface ChildImportModalProps {
     onClose: () => void
     classes: Class[]
     existingChildren: Child[]
-    onImported: () => Promise<void>
+    onImported: (summary: { insertados: number; omitidos: number; conError: number }) => Promise<void> | void
 }
 
 type Step = 'subir' | 'previsualizar' | 'resultado'
@@ -150,11 +150,22 @@ export function ChildImportModal({ isOpen, onClose, classes, existingChildren, o
             const write = await insertImportOkRows(preview.verdicts, (child) =>
                 ChildService.createChild(child),
             )
-            await onImported()
-            setWriteResult({
+            const summary = {
                 insertados: write.insertados,
                 omitidos: preview.summary.duplicados,
                 conError: preview.summary.conError,
+            }
+            await onImported(summary)
+            // Éxito limpio: se cierra la modal y la confirmación queda en la
+            // página (no se reabre la modal). Con errores o fallos de escritura
+            // se muestra el paso 'resultado' para descargar el reporte.
+            if (write.fallidos.length === 0 && preview.summary.conError === 0) {
+                resetToUpload()
+                onClose()
+                return
+            }
+            setWriteResult({
+                ...summary,
                 fallidos: write.fallidos,
             })
             setStep('resultado')
@@ -213,7 +224,7 @@ export function ChildImportModal({ isOpen, onClose, classes, existingChildren, o
         {
             header: 'Motivo',
             accessor: (row: PreviewRow) => (
-                <span className="block max-w-md whitespace-normal text-xs text-gray-600">{row.motivo}</span>
+                <span className="block max-w-[12rem] whitespace-normal text-xs text-gray-600 sm:max-w-md">{row.motivo}</span>
             ),
         },
     ]
@@ -221,7 +232,7 @@ export function ChildImportModal({ isOpen, onClose, classes, existingChildren, o
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title="Importar alumnos desde Excel" size="6xl">
             <div className="space-y-6">
-                <ol className="flex items-center gap-2 text-xs font-medium" aria-label="Pasos de la importación">
+                <ol className="flex flex-wrap items-center gap-2 text-xs font-medium" aria-label="Pasos de la importación">
                     <li
                         className={cn(
                             'flex items-center gap-2 rounded-full px-3 py-1.5',

@@ -27,6 +27,7 @@ export default function ChildrenPage() {
     const [childToDelete, setChildToDelete] = useState<Child | null>(null)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+    const [importSuccess, setImportSuccess] = useState<string | null>(null)
     const [classes, setClasses] = useState<Class[]>([])
     const [allergens, setAllergens] = useState<Allergen[]>([])
     const [isSaving, setIsSaving] = useState(false)
@@ -81,6 +82,14 @@ export default function ChildrenPage() {
             ...classes.filter(cls => cls.id === editingChild.class_id && !cls.is_active)
         ].map(cls => [cls.id, cls])).values())
         : activeClasses
+
+    const handleImportSuccess = useCallback(async (summary: { insertados: number; omitidos: number; conError: number }) => {
+        await reloadSchoolData()
+        const parts = [`${summary.insertados} ${summary.insertados === 1 ? 'alumno añadido' : 'alumnos añadidos'}`]
+        if (summary.omitidos > 0) parts.push(`${summary.omitidos} omitidos (duplicados)`)
+        if (summary.conError > 0) parts.push(`${summary.conError} con error`)
+        setImportSuccess(`Importación completada: ${parts.join(', ')}.`)
+    }, [reloadSchoolData])
 
     const handleCreateChild = async (newChildData: { first_name: string; last_name: string; class_id: string; allergenIds: string[]; lunch_weekdays: number[] | null }): Promise<boolean> => {
         try {
@@ -242,12 +251,25 @@ export default function ChildrenPage() {
                     <p className="text-sm text-gray-500">Consulta y gestiona la información de los alumnos comensales.</p>
                 </div>
                 {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</div>}
+                {importSuccess && (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">
+                        <span>{importSuccess} La lista de alumnos ya se ha recargado.</span>
+                        <button
+                            type="button"
+                            onClick={() => setImportSuccess(null)}
+                            className="flex-shrink-0 rounded px-2 py-0.5 text-green-700 hover:bg-green-100"
+                            aria-label="Descartar aviso de importación"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
                 <div className="flex gap-2">
                     {canImport && (
                         <Button
                             variant="secondary"
                             className="flex items-center gap-2"
-                            onClick={() => setIsImportModalOpen(true)}
+                            onClick={() => { setImportSuccess(null); setIsImportModalOpen(true) }}
                         >
                             <Upload className="h-4 w-4" />
                             Importar Excel
@@ -314,7 +336,7 @@ export default function ChildrenPage() {
                     onClose={() => setIsImportModalOpen(false)}
                     classes={activeClasses}
                     existingChildren={children}
-                    onImported={reloadSchoolData}
+                    onImported={handleImportSuccess}
                 />
             )}
 
