@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { ChildService, type Child } from '../../../services/children.service'
@@ -32,34 +32,35 @@ export default function ChildrenPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [deleteError, setDeleteError] = useState<string | null>(null)
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!schoolId) {
-                setLoadError('No se pudo identificar el colegio')
-                setIsLoading(false)
-                return
-            }
-            try {
-                setIsLoading(true)
-                const [childrenData, classesData, allergensData] = await Promise.all([
-                    ChildService.getChildrenBySchool(schoolId),
-                    ClassService.getClassesBySchool(schoolId),
-                    AllergenService.getAll()
-                ])
-                setChildren(childrenData)
-                setClasses(classesData)
-                setAllergens(allergensData)
-                setError(null)
-                setLoadError(null)
-            } catch (err) {
-                console.error('Error fetching data:', err)
-                setLoadError('No se pudieron cargar los datos')
-            } finally {
-                setIsLoading(false)
-            }
+    const reloadSchoolData = useCallback(async () => {
+        if (!schoolId) {
+            setLoadError('No se pudo identificar el colegio')
+            setIsLoading(false)
+            return
         }
-        fetchData()
+        try {
+            setIsLoading(true)
+            const [childrenData, classesData, allergensData] = await Promise.all([
+                ChildService.getChildrenBySchool(schoolId),
+                ClassService.getClassesBySchool(schoolId),
+                AllergenService.getAll()
+            ])
+            setChildren(childrenData)
+            setClasses(classesData)
+            setAllergens(allergensData)
+            setError(null)
+            setLoadError(null)
+        } catch (err) {
+            console.error('Error fetching data:', err)
+            setLoadError('No se pudieron cargar los datos')
+        } finally {
+            setIsLoading(false)
+        }
     }, [schoolId])
+
+    useEffect(() => {
+        void reloadSchoolData()
+    }, [reloadSchoolData])
 
     const filteredChildren = children.filter(child => {
         if (!child.is_active) return false
@@ -313,6 +314,7 @@ export default function ChildrenPage() {
                     onClose={() => setIsImportModalOpen(false)}
                     classes={activeClasses}
                     existingChildren={children}
+                    onImported={reloadSchoolData}
                 />
             )}
 

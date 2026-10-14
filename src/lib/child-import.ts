@@ -78,6 +78,23 @@ export interface ErrorReportRow {
     motivo: string;
 }
 
+export interface ImportInsertRow {
+    excelRowNumber: number;
+    first_name: string;
+    last_name: string;
+    class_id: string;
+}
+
+export const ERROR_REPORT_HEADERS = [
+    'n_fila_excel',
+    'nombre',
+    'apellidos',
+    'aula',
+    'campo',
+    'valor_original',
+    'motivo_error',
+] as const;
+
 export function normalizeText(value: unknown): string {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -306,4 +323,55 @@ export function buildErrorReportRows(result: ImportValidationResult): ErrorRepor
         }
     }
     return report;
+}
+
+/**
+ * Paso 3 (#21): selección parcial insert-only.
+ *
+ * Devuelve solo las filas con veredicto ok listas para insertar, con el
+ * payload ya mapeado a columnas de `children`. Las filas con error,
+ * duplicadas o vacías nunca se incluyen: el llamante no debe escribir nada
+ * más. No muta la entrada.
+ */
+export function collectRowsToInsert(verdicts: readonly RowVerdict[]): ImportInsertRow[] {
+    const toInsert: ImportInsertRow[] = [];
+    for (const verdict of verdicts) {
+        if (verdict.estado !== 'ok') continue;
+        toInsert.push({
+            excelRowNumber: verdict.excelRowNumber,
+            first_name: verdict.nombre,
+            last_name: verdict.apellidos,
+            class_id: verdict.classId,
+        });
+    }
+    return toInsert;
+}
+
+/**
+ * Tabla pura del reporte de errores descargable (#21): cabecera canónica en
+ * español + una línea por error (una fila con 2 errores = 2 líneas) con el
+ * nº_fila_excel real + bloque resumen total/listos/con error/duplicados.
+ *
+ * Devuelve una matriz AOA lista para el adaptador xlsx; no toca BD ni DOM.
+ */
+export function buildErrorReportTable(result: ImportValidationResult): unknown[][] {
+    const table: unknown[][] = [[...ERROR_REPORT_HEADERS]];
+    for (const line of buildErrorReportRows(result)) {
+        table.push([
+            line.filaExcel,
+            line.nombre,
+            line.apellidos,
+            line.aula,
+            line.campo,
+            line.valorOriginal,
+            line.motivo,
+        ]);
+    }
+    table.push([]);
+    table.push(['resumen', '', '', '', '', '', '']);
+    table.push(['total', result.summary.total, '', '', '', '', '']);
+    table.push(['listos para importar', result.summary.listos, '', '', '', '', '']);
+    table.push(['con error', result.summary.conError, '', '', '', '', '']);
+    table.push(['duplicados (se omiten sin escribir)', result.summary.duplicados, '', '', '', '', '']);
+    return table;
 }
