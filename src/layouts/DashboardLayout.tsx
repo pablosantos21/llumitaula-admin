@@ -13,7 +13,6 @@ import {
     School as SchoolIcon,
     Loader2,
     Smartphone
-    , History
     , ClipboardCheck
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -52,7 +51,6 @@ export default function DashboardLayout() {
         { name: 'Incidencias', href: `/school/${schoolId}/incidences`, icon: AlertTriangle },
         { name: 'Aulas', href: `/school/${schoolId}/classes`, icon: SchoolIcon },
         { name: 'Dispositivos', href: `/school/${schoolId}/devices`, icon: Smartphone },
-        { name: 'Historial', href: `/school/${schoolId}/history`, icon: History },
         { name: 'Asistencia', href: `/school/${schoolId}/attendance`, icon: ClipboardCheck },
     ];
 
