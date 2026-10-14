@@ -148,7 +148,7 @@ export const MenuService = {
         // and its schools go in a single call so a failed school never leaves a
         // menu without schools.
         const { data, error } = await supabase.rpc('save_menu_with_schools', {
-            p_menu_id: menuId ?? null,
+            p_menu_id: menuId || null,
             p_menu: {
                 type: menu.type || 'normal',
                 first_course: menu.first_course || menu.primero || '',

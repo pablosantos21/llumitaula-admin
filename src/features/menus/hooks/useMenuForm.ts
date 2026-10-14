@@ -78,7 +78,7 @@ export const useMenuForm = (selectedDate: Date | null, onSaveSuccess: () => void
             };
 
             await MenuService.saveMenuWithSchools(
-                formData.id,
+                formData.id || undefined,
                 menuData,
                 formData.schoolIds,
                 formatDate(selectedDate)
