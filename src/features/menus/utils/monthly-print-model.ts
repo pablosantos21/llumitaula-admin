@@ -50,7 +50,7 @@ export function buildMonthlyPrintModel(
 
     const menus = assignmentsByDate[date] ?? [];
     const baseMenu = menus.find(({ menu }) => menu.type === "normal")?.menu;
-    const isServiceDay = menus.length > 0;
+    const isServiceDay = Boolean(baseMenu);
     days.push({
       date,
       dayNumber,

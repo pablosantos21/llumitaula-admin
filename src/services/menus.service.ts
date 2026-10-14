@@ -38,6 +38,40 @@ export interface DailyMenu {
 }
 
 export const MenuService = {
+    getMonthlyPrintAssignments: async (startDate: string, endDate: string): Promise<Record<string, { menu: DailyMenu['menu'] }[]>> => {
+        const { data: assignments, error: assignmentsError } = await supabase
+            .from('menus_schools')
+            .select('date, menu_id')
+            .gte('date', startDate)
+            .lte('date', endDate);
+
+        if (assignmentsError) throw new Error(assignmentsError.message);
+        const rows = assignments || [];
+        const menuIds = Array.from(new Set(rows.map(row => row.menu_id).filter(Boolean)));
+        if (menuIds.length === 0) return {};
+
+        const { data: menus, error: menusError } = await supabase
+            .from('menus')
+            .select('*')
+            .in('id', menuIds);
+        if (menusError) throw new Error(menusError.message);
+
+        const menusById = new Map((menus || []).map((menu: any) => [menu.id, {
+            ...menu,
+            first_course: menu.first_course || menu.primero,
+            second_course: menu.second_course || menu.segundo,
+            side: menu.side || menu.guarnicion,
+            salad: menu.salad || menu.ensalada,
+            dessert: menu.dessert || menu.postre,
+        }]));
+        return rows.reduce<Record<string, { menu: DailyMenu['menu'] }[]>>((byDate, row) => {
+            const menu = menusById.get(row.menu_id);
+            if (!menu) return byDate;
+            (byDate[row.date] ||= []).push({ menu });
+            return byDate;
+        }, {});
+    },
+
     getMenuCoverage: async (startDate: string, endDate: string): Promise<DayCoverage[]> => {
         // This query gets the count of unique schools assigned a menu for each date in the range
         const { data, error } = await supabase

@@ -37,3 +37,48 @@
 body {
     min-height: 100vh;
 }
+
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-preview-overlay,
+  .print-preview-overlay * {
+    visibility: visible !important;
+  }
+
+  .print-preview-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .print-preview-toolbar {
+    display: none !important;
+  }
+
+  .print-sheet {
+    max-width: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    color: black !important;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+  }
+
+  .print-sheet table {
+    font-size: 9.5pt;
+  }
+
+  .print-day {
+    break-inside: avoid;
+  }
+}
