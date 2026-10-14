@@ -3,6 +3,8 @@ import type { DailyAttendanceRow } from '../lib/attendance';
 
 export type AttendanceFilters = {
     date?: string;
+    dateFrom?: string;
+    dateTo?: string;
     classId?: string;
 };
 
@@ -24,6 +26,8 @@ export const AttendanceService = {
             .order('attendance_date', { ascending: false });
 
         if (filters.date) query = query.eq('attendance_date', filters.date);
+        if (filters.dateFrom) query = query.gte('attendance_date', filters.dateFrom);
+        if (filters.dateTo) query = query.lte('attendance_date', filters.dateTo);
         if (filters.classId) query = query.eq('class_id', filters.classId);
 
         const { data: rows, error } = await query;
