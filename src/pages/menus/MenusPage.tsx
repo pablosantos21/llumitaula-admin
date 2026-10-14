@@ -8,11 +8,13 @@ import {
     NormalMenuModal,
     SpecialMenusView
 } from '@/features/menus'
+import { MonthlyMenuPrint } from '@/features/menus/components/MonthlyMenuPrint'
 
 type MenuTab = 'menus' | 'especiales'
 
 export default function MenusPage() {
     const [activeTab, setActiveTab] = useState<MenuTab>('menus')
+    const [printKind, setPrintKind] = useState<'normal' | 'special' | null>(null)
 
     const {
         selectedDate,
@@ -43,7 +45,7 @@ export default function MenusPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <MenuHeader activeTab={activeTab} onTabChange={setActiveTab} />
+            <MenuHeader activeTab={activeTab} onTabChange={setActiveTab} onPrintNormal={() => setPrintKind('normal')} onPrintSpecial={() => setPrintKind('special')} />
 
             <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
                 {activeTab === 'menus' ? (
@@ -91,6 +93,7 @@ export default function MenusPage() {
                     <SpecialMenusView />
                 )}
             </main>
+            {printKind && <MonthlyMenuPrint month={currentMonth} kind={printKind} onClose={() => setPrintKind(null)} />}
         </div>
     )
 }

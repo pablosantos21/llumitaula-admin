@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Utensils, ChevronLeft } from 'lucide-react'
+import { Utensils, ChevronLeft, Printer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type MenuTab = 'menus' | 'especiales'
@@ -8,6 +8,8 @@ type MenuTab = 'menus' | 'especiales'
 interface MenuHeaderProps {
     activeTab: MenuTab
     onTabChange: (tab: MenuTab) => void
+    onPrintNormal: () => void
+    onPrintSpecial: () => void
 }
 
 const tabs: { id: MenuTab; label: string }[] = [
@@ -15,7 +17,7 @@ const tabs: { id: MenuTab; label: string }[] = [
     { id: 'especiales', label: 'Menús Especiales' },
 ]
 
-export const MenuHeader = ({ activeTab, onTabChange }: MenuHeaderProps) => {
+export const MenuHeader = ({ activeTab, onTabChange, onPrintNormal, onPrintSpecial }: MenuHeaderProps) => {
     const navigate = useNavigate()
 
     return (
@@ -31,21 +33,34 @@ export const MenuHeader = ({ activeTab, onTabChange }: MenuHeaderProps) => {
                     <h1 className="text-lg font-bold text-gray-900">Gestión de Menús</h1>
                 </div>
             </div>
-            <div className="flex gap-1 -mb-px">
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => onTabChange(tab.id)}
-                        className={cn(
-                            "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                            activeTab === tab.id
-                                ? "border-primary-600 text-primary-700"
-                                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        )}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
+            <div className="flex items-center justify-between -mb-px">
+                <div className="flex gap-1">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => onTabChange(tab.id)}
+                            className={cn(
+                                "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                                activeTab === tab.id
+                                    ? "border-primary-600 text-primary-700"
+                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                            )}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+                {activeTab === 'menus' ? (
+                    <Button variant="outline" size="sm" className="mb-1" onClick={onPrintNormal}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir Normal
+                    </Button>
+                ) : (
+                    <Button variant="outline" size="sm" className="mb-1" onClick={onPrintSpecial}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir Especiales
+                    </Button>
+                )}
             </div>
         </header>
     )
