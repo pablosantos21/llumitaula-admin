@@ -14,6 +14,7 @@ export type MonthlyPrintDay = {
   date: string;
   dayNumber: number;
   isServiceDay: boolean;
+  notice: "Sin servicio" | null;
   base: PrintDish[];
   variants: { label: string; dishes: PrintDish[] }[];
 };
@@ -49,10 +50,12 @@ export function buildMonthlyPrintModel(
 
     const menus = assignmentsByDate[date] ?? [];
     const baseMenu = menus.find(({ menu }) => menu.type === "normal")?.menu;
+    const isServiceDay = menus.length > 0;
     days.push({
       date,
       dayNumber,
-      isServiceDay: Boolean(baseMenu),
+      isServiceDay,
+      notice: isServiceDay ? null : "Sin servicio",
       base: dishes(baseMenu),
       variants: menus
         .filter(({ menu }) => menu.type !== "normal")

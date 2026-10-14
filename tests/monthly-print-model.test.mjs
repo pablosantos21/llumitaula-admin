@@ -15,6 +15,7 @@ test("builds only weekdays and marks days without a normal menu as no service", 
   assert.deepEqual(model.days[0].base, [{ label: "Primero", value: "Sopa" }]);
   assert.equal(model.days[1].date, "2026-02-03");
   assert.equal(model.days[1].isServiceDay, false);
+  assert.equal(model.days[1].notice, "Sin servicio");
   assert.deepEqual(model.days[1].base, []);
   assert.ok(model.days.every(({ date }) => ![0, 6].includes(new Date(`${date}T12:00:00`).getDay())));
 });
@@ -43,5 +44,5 @@ test("supports a month with no menus as weekday no-service days", () => {
   const model = buildMonthlyPrintModel(2026, 1, {});
 
   assert.equal(model.days.length, 20);
-  assert.ok(model.days.every((day) => !day.isServiceDay && day.variants.length === 0));
+  assert.ok(model.days.every((day) => !day.isServiceDay && day.notice === "Sin servicio" && day.variants.length === 0));
 });
