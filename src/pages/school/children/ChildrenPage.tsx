@@ -1,19 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useAuth } from '../../../contexts/AuthContext'
 import { ChildService, type Child } from '../../../services/children.service'
 import { ClassService, type Class } from '../../../services/classes.service'
 import { AllergenService, type Allergen } from '../../../services/allergens.service'
 import { DataTable } from '../../../components/ui/data-table'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
-import { Plus, Search, Edit2, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit2, Loader2, Trash2, Upload } from 'lucide-react'
 import { EditChildModal } from './components/EditChildModal'
 import { AddChildModal } from './components/AddChildModal'
 import { DeleteChildModal } from './components/DeleteChildModal'
+import { ChildImportModal } from './components/ChildImportModal'
 import { summarizeLunchWeekdays } from './lunch-days'
 
 export default function ChildrenPage() {
     const { schoolId } = useParams<{ schoolId: string }>()
+    const { isAdmin } = useAuth()
+    const canImport = isAdmin && !!schoolId
     const [children, setChildren] = useState<Child[]>([])
     const [searchTerm, setSearchTerm] = useState('')
     const [isLoading, setIsLoading] = useState(true)
@@ -22,6 +26,7 @@ export default function ChildrenPage() {
     const [editingChild, setEditingChild] = useState<Child | null>(null)
     const [childToDelete, setChildToDelete] = useState<Child | null>(null)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false)
     const [classes, setClasses] = useState<Class[]>([])
     const [allergens, setAllergens] = useState<Allergen[]>([])
     const [isSaving, setIsSaving] = useState(false)
@@ -237,6 +242,16 @@ export default function ChildrenPage() {
                 </div>
                 {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</div>}
                 <div className="flex gap-2">
+                    {canImport && (
+                        <Button
+                            variant="secondary"
+                            className="flex items-center gap-2"
+                            onClick={() => setIsImportModalOpen(true)}
+                        >
+                            <Upload className="h-4 w-4" />
+                            Importar Excel
+                        </Button>
+                    )}
                     <Button
                         className="flex items-center gap-2"
                         onClick={() => setIsAddModalOpen(true)}
@@ -291,6 +306,15 @@ export default function ChildrenPage() {
                 error={deleteError}
                 onConfirm={handleDeleteChild}
             />
+
+            {canImport && (
+                <ChildImportModal
+                    isOpen={isImportModalOpen}
+                    onClose={() => setIsImportModalOpen(false)}
+                    classes={activeClasses}
+                    existingChildren={children}
+                />
+            )}
 
         </div>
     )
