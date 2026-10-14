@@ -40,20 +40,22 @@ export function Modal({ isOpen, onClose, title, children, size = 'lg' }: ModalPr
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-            <div
-                className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
-            />
-            <div className={cn("relative w-full transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all", sizeClasses[size])}>
-                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-gray-400">
-                        <X className="h-4 w-4" />
-                    </Button>
-                </div>
-                <div className="px-6 py-6 overflow-hidden">
-                    {children}
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
+                <div
+                    className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
+                    onClick={onClose}
+                />
+                <div className={cn("relative mx-auto flex max-h-[90vh] w-full transform flex-col overflow-hidden rounded-xl bg-white shadow-2xl transition-all", sizeClasses[size])}>
+                    <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6">
+                        <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-900 sm:text-lg">{title}</h3>
+                        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 flex-shrink-0 text-gray-400">
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">
+                        {children}
+                    </div>
                 </div>
             </div>
         </div>
