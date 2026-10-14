@@ -9,6 +9,7 @@ interface MenuHeaderProps {
     activeTab: MenuTab
     onTabChange: (tab: MenuTab) => void
     onPrintNormal: () => void
+    onPrintSpecial: () => void
 }
 
 const tabs: { id: MenuTab; label: string }[] = [
@@ -16,7 +17,7 @@ const tabs: { id: MenuTab; label: string }[] = [
     { id: 'especiales', label: 'Menús Especiales' },
 ]
 
-export const MenuHeader = ({ activeTab, onTabChange, onPrintNormal }: MenuHeaderProps) => {
+export const MenuHeader = ({ activeTab, onTabChange, onPrintNormal, onPrintSpecial }: MenuHeaderProps) => {
     const navigate = useNavigate()
 
     return (
@@ -49,10 +50,15 @@ export const MenuHeader = ({ activeTab, onTabChange, onPrintNormal }: MenuHeader
                         </button>
                     ))}
                 </div>
-                {activeTab === 'menus' && (
+                {activeTab === 'menus' ? (
                     <Button variant="outline" size="sm" className="mb-1" onClick={onPrintNormal}>
                         <Printer className="mr-2 h-4 w-4" />
                         Imprimir Normal
+                    </Button>
+                ) : (
+                    <Button variant="outline" size="sm" className="mb-1" onClick={onPrintSpecial}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir Especiales
                     </Button>
                 )}
             </div>

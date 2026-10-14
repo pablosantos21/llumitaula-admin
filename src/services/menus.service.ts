@@ -67,7 +67,8 @@ export const MenuService = {
         return rows.reduce<Record<string, { menu: DailyMenu['menu'] }[]>>((byDate, row) => {
             const menu = menusById.get(row.menu_id);
             if (!menu) return byDate;
-            (byDate[row.date] ||= []).push({ menu });
+            const dailyMenus = (byDate[row.date] ||= []);
+            if (!dailyMenus.some(assignment => assignment.menu.id === menu.id)) dailyMenus.push({ menu });
             return byDate;
         }, {});
     },
