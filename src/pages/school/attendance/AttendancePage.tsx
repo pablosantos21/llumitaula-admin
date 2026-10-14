@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, RotateCcw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
-import { Button } from '../../../components/ui/button';
-import { Label } from '../../../components/ui/label';
 import { ClassService, type Class } from '../../../services/classes.service';
 import { ChildService, type Child } from '../../../services/children.service';
 import { AttendanceService, type AttendanceRecord } from '../../../services/attendance.service';
@@ -81,9 +79,19 @@ export default function AttendancePage() {
         if (record) return record.present ? 'present' : 'absent';
         return child.lunch_weekdays?.includes(weekdayNumber(date)) ? 'pending' : 'not-planned';
     };
-    const clearFilters = () => { setMonth(currentMonth()); setClassId(classes[0]?.id || ''); };
+    const shiftMonth = (delta: number) => {
+        const [year, monthNumber] = month.split('-').map(Number);
+        const date = new Date(year, monthNumber - 1 + delta, 1);
+        setMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+    };
+    const monthLabel = useMemo(() => {
+        const [year, monthNumber] = month.split('-').map(Number);
+        if (!year || !monthNumber) return month;
+        const label = new Date(year, monthNumber - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        return label.charAt(0).toUpperCase() + label.slice(1);
+    }, [month]);
 
-    const marker = (status: CellStatus) => {
+    const marker = (status: CellStatus, size: 'sm' | 'md' = 'md') => {
         const styles: Record<CellStatus, string> = {
             present: 'bg-emerald-100 text-emerald-700',
             absent: 'bg-red-100 text-red-700',
@@ -96,31 +104,32 @@ export default function AttendancePage() {
         const accessible: Record<CellStatus, string> = {
             present: 'Asistió', absent: 'No asistió', pending: 'Día previsto, lista sin confirmar', 'not-planned': 'No previsto',
         };
-        return <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${styles[status]}`} aria-label={accessible[status]} title={accessible[status]}>{label[status]}</span>;
+        const sizeClass = size === 'sm' ? 'h-5 w-5 text-xs' : 'h-6 w-6 text-sm';
+        return <span className={`inline-flex ${sizeClass} items-center justify-center rounded-full font-semibold ${styles[status]}`} aria-label={accessible[status]} title={accessible[status]}>{label[status]}</span>;
     };
 
-    return <div className="space-y-6">
-        <div>
-            <h1 className="text-2xl font-bold text-gray-900">Asistencia</h1>
-            <p className="text-sm text-gray-500">Consulta por día qué alumnos tenían previsto comer y si asistieron.</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2"><Search className="h-4 w-4 text-primary-600" /><h2 className="font-semibold text-gray-900">Filtros</h2></div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="space-y-2"><Label htmlFor="attendance-month">Mes</Label><input id="attendance-month" type="month" value={month} onChange={event => setMonth(event.target.value)} className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm" /></div>
-                <div className="space-y-2"><Label htmlFor="attendance-class">Aula</Label><select id="attendance-class" value={classId} onChange={event => setClassId(event.target.value)} className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm" disabled={isLoadingClasses || !classes.length}><option value="" disabled>{isLoadingClasses ? 'Cargando aulas…' : 'Selecciona un aula'}</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-                <div className="flex items-end justify-end"><Button variant="outline" onClick={clearFilters} disabled={isLoading || isLoadingClasses}><RotateCcw className="mr-2 h-4 w-4" />Limpiar filtros</Button></div>
+    return <div className="space-y-3">
+        <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => shiftMonth(-1)} aria-label="Mes anterior" className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900"><ChevronLeft className="h-4 w-4" /></button>
+                        <span className="min-w-32 text-center text-sm font-semibold capitalize text-gray-900">{monthLabel}</span>
+                        <button type="button" onClick={() => shiftMonth(1)} aria-label="Mes siguiente" className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900"><ChevronRight className="h-4 w-4" /></button>
+                    </div>
+                    <select id="attendance-class" value={classId} onChange={event => setClassId(event.target.value)} aria-label="Aula" className="h-8 w-44 rounded-md border border-gray-200 px-2 text-sm" disabled={isLoadingClasses || !classes.length}><option value="" disabled>{isLoadingClasses ? 'Cargando aulas…' : 'Selecciona un aula'}</option>{classes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                </div>
+                <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600" aria-label="Leyenda de asistencia">
+                    <span className="inline-flex items-center gap-1.5">{marker('pending', 'sm')} Previsto</span>
+                    <span className="inline-flex items-center gap-1.5">{marker('present', 'sm')} Asistió</span>
+                    <span className="inline-flex items-center gap-1.5">{marker('absent', 'sm')} No asistió</span>
+                    <span className="inline-flex items-center gap-1.5">{marker('not-planned', 'sm')} No previsto</span>
+                </div>
             </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-xs text-gray-600" aria-label="Leyenda de asistencia">
-            <span className="inline-flex items-center gap-2">{marker('pending')} Previsto, pendiente</span>
-            <span className="inline-flex items-center gap-2">{marker('present')} Asistió</span>
-            <span className="inline-flex items-center gap-2">{marker('absent')} No asistió</span>
-            <span className="inline-flex items-center gap-2">{marker('not-planned')} No previsto</span>
         </div>
         {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</div>}
         {isLoading || isLoadingClasses ? <div className="flex justify-center p-12" role="status"><Loader2 className="h-8 w-8 animate-spin text-primary-600" /></div> : classId && <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="max-h-[70vh] overflow-auto">
+            <div className="max-h-[75vh] overflow-auto">
                 <table className="min-w-full border-separate border-spacing-0 text-sm">
                     <thead className="sticky top-0 z-20 bg-gray-50"><tr>
                         <th scope="col" className="sticky left-0 z-30 min-w-44 border-b border-r border-gray-200 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-700">Alumno</th>
