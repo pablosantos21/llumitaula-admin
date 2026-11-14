@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-
 export type UserRole = 'admin' | 'supervisor' | 'monitor';
 
 export interface User {
@@ -9,7 +7,17 @@ export interface User {
     role: UserRole;
 }
 
-const normalizeRole = (role: unknown): UserRole => {
+export interface SupabaseUserLike {
+    id: string;
+    email?: string;
+    app_metadata?: {
+        provider?: string;
+        role?: unknown;
+        [key: string]: unknown;
+    };
+}
+
+export const normalizeRole = (role: unknown): UserRole => {
     if (role === 'admin' || role === 'supervisor' || role === 'monitor') {
         return role;
     }
@@ -17,8 +25,24 @@ const normalizeRole = (role: unknown): UserRole => {
     return 'monitor';
 };
 
+export const mapSupabaseUser = (user: SupabaseUserLike | null | undefined): User | null => {
+    if (!user) return null;
+    return {
+        id: user.id,
+        name: user.email?.split('@')[0] || 'User',
+        email: user.email || '',
+        role: normalizeRole(user.app_metadata?.role),
+    };
+};
+
+const getSupabase = async () => {
+    const { supabase } = await import('../lib/supabase.ts');
+    return supabase;
+};
+
 export const AuthService = {
     login: async (email: string, password: string): Promise<User> => {
+        const supabase = await getSupabase();
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -32,17 +56,15 @@ export const AuthService = {
             throw new Error('Login failed: No user returned');
         }
 
-        // Map Supabase user to our User interface
-        // Read the role from trusted app metadata or default to monitor
-        return {
-            id: data.user.id,
-            name: data.user.email?.split('@')[0] || 'User',
-            email: data.user.email || '',
-            role: normalizeRole(data.user.app_metadata?.role),
-        };
+        const mapped = mapSupabaseUser(data.user);
+        if (!mapped) {
+            throw new Error('Login failed: No user returned');
+        }
+        return mapped;
     },
 
     logout: async () => {
+        const supabase = await getSupabase();
         const { error } = await supabase.auth.signOut();
         if (error) {
             throw new Error(error.message);
@@ -50,30 +72,32 @@ export const AuthService = {
     },
 
     getCurrentUser: async (): Promise<User | null> => {
+        const supabase = await getSupabase();
         const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) return null;
-
-        return {
-            id: user.id,
-            name: user.email?.split('@')[0] || 'User',
-            email: user.email || '',
-            role: normalizeRole(user.app_metadata?.role),
-        };
+        return mapSupabaseUser(user);
     },
 
     onAuthStateChange: (callback: (user: User | null) => void) => {
-        return supabase.auth.onAuthStateChange((_event, session) => {
-            if (session?.user) {
-                callback({
-                    id: session.user.id,
-                    name: session.user.email?.split('@')[0] || 'User',
-                    email: session.user.email || '',
-                    role: normalizeRole(session.user.app_metadata?.role),
-                });
-            } else {
-                callback(null);
-            }
+        let subscription: { unsubscribe: () => void } | null = null;
+        let isUnsubscribed = false;
+
+        void getSupabase().then(supabase => {
+            if (isUnsubscribed) return;
+            const res = supabase.auth.onAuthStateChange((_event, session) => {
+                callback(mapSupabaseUser(session?.user));
+            });
+            subscription = res.data.subscription;
         });
+
+        return {
+            data: {
+                subscription: {
+                    unsubscribe: () => {
+                        isUnsubscribed = true;
+                        subscription?.unsubscribe();
+                    }
+                }
+            }
+        };
     }
 };
