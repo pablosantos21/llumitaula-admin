@@ -1,6 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from '../lib/supabase';
-import type { MenuType } from '../mocks/menus';
+import type { MenuType, MenuDishes } from '../features/menus/types';
+
+export type { MenuDishes };
+
+export interface RawMenuDishes {
+    first_course?: string | null;
+    second_course?: string | null;
+    side?: string | null;
+    salad?: string | null;
+    dessert?: string | null;
+    primero?: string | null;
+    segundo?: string | null;
+    guarnicion?: string | null;
+    ensalada?: string | null;
+    postre?: string | null;
+}
+
+export function normalizeMenuDishes(raw: RawMenuDishes): MenuDishes {
+    return {
+        first_course: raw.first_course || raw.primero || '',
+        second_course: raw.second_course || raw.segundo || '',
+        side: raw.side || raw.guarnicion || null,
+        salad: raw.salad || raw.ensalada || null,
+        dessert: raw.dessert || raw.postre || null,
+    };
+}
 
 export interface MenuAssignment {
     id: string;
@@ -18,7 +42,7 @@ export interface MenuAssignment {
         postre: string;
         start_date: string;
         end_date: string;
-    }
+    };
 }
 
 export interface DayCoverage {
@@ -27,14 +51,24 @@ export interface DayCoverage {
     menu_ids: string[];
 }
 
+export interface DailyMenuRecord extends MenuDishes {
+    id: string;
+    type: MenuType;
+    name?: string;
+    startDate?: string;
+    endDate?: string;
+    allergens?: string[];
+}
+
 export interface DailyMenu {
-    menu: {
-        id: string;
-        name: string;
-        type: MenuType;
-        [key: string]: any;
-    };
+    menu: DailyMenuRecord;
     school_ids: string[];
+}
+
+export interface MenuWithSchoolsResult {
+    menu: DailyMenuRecord & { side: string; salad: string; dessert: string };
+    schools: { id: string; name: string }[];
+    date: string;
 }
 
 export const MenuService = {
@@ -56,14 +90,31 @@ export const MenuService = {
             .in('id', menuIds);
         if (menusError) throw new Error(menusError.message);
 
-        const menusById = new Map((menus || []).map((menu: any) => [menu.id, {
-            ...menu,
-            first_course: menu.first_course || menu.primero,
-            second_course: menu.second_course || menu.segundo,
-            side: menu.side || menu.guarnicion,
-            salad: menu.salad || menu.ensalada,
-            dessert: menu.dessert || menu.postre,
-        }]));
+        interface DbMenuRow extends RawMenuDishes {
+            id: string;
+            type?: MenuType;
+            name?: string;
+            startDate?: string;
+            endDate?: string;
+            start_date?: string;
+            end_date?: string;
+            allergens?: string[];
+        }
+
+        const menuRows = (menus || []) as DbMenuRow[];
+        const menusById = new Map<string, DailyMenuRecord>(menuRows.map(menu => {
+            const normalized = normalizeMenuDishes(menu);
+            return [menu.id, {
+                id: menu.id,
+                type: menu.type || 'normal',
+                name: menu.name,
+                startDate: menu.startDate || menu.start_date,
+                endDate: menu.endDate || menu.end_date,
+                allergens: menu.allergens,
+                ...normalized,
+            }];
+        }));
+
         return rows.reduce<Record<string, { menu: DailyMenu['menu'] }[]>>((byDate, row) => {
             const menu = menusById.get(row.menu_id);
             if (!menu) return byDate;
@@ -74,7 +125,6 @@ export const MenuService = {
     },
 
     getMenuCoverage: async (startDate: string, endDate: string): Promise<DayCoverage[]> => {
-        // This query gets the count of unique schools assigned a menu for each date in the range
         const { data, error } = await supabase
             .from('menus_schools')
             .select('date, school_id, menu_id')
@@ -86,8 +136,14 @@ export const MenuService = {
             throw new Error(error.message);
         }
 
-        // Process data to count unique schools and menus per date
-        const coverageMap = (data || []).reduce((acc: Record<string, { schools: Set<string>; menus: Set<string> }>, curr) => {
+        interface CoverageRow {
+            date: string;
+            school_id: string;
+            menu_id: string | null;
+        }
+
+        const rows = (data || []) as CoverageRow[];
+        const coverageMap = rows.reduce<Record<string, { schools: Set<string>; menus: Set<string> }>>((acc, curr) => {
             if (!acc[curr.date]) acc[curr.date] = { schools: new Set(), menus: new Set() };
             acc[curr.date].schools.add(curr.school_id);
             if (curr.menu_id) acc[curr.date].menus.add(curr.menu_id);
@@ -120,42 +176,57 @@ export const MenuService = {
             throw new Error(error.message);
         }
 
-        return (data || []).map((m: any) => {
-            const { menus_schools, ...menuData } = m;
+        interface DbDailyMenuRow extends RawMenuDishes {
+            id: string;
+            type?: MenuType;
+            name?: string;
+            startDate?: string;
+            endDate?: string;
+            start_date?: string;
+            end_date?: string;
+            allergens?: string[];
+            menus_schools: Array<{
+                school_id: string;
+                date: string;
+                menu_id: string;
+            }>;
+        }
+
+        const rows = (data || []) as unknown as DbDailyMenuRow[];
+        return rows.map(m => {
+            const { menus_schools = [], ...menuData } = m;
+            const normalized = normalizeMenuDishes(menuData);
             return {
                 menu: {
-                    ...menuData,
-                    // Ensure we map the English fields correctly if they came in different formats
-                    first_course: menuData.first_course || menuData.primero,
-                    second_course: menuData.second_course || menuData.segundo,
-                    side: menuData.side || menuData.guarnicion,
-                    salad: menuData.salad || menuData.ensalada,
-                    dessert: menuData.dessert || menuData.postre
+                    id: menuData.id,
+                    type: menuData.type || 'normal',
+                    name: menuData.name,
+                    startDate: menuData.startDate || menuData.start_date,
+                    endDate: menuData.endDate || menuData.end_date,
+                    allergens: menuData.allergens,
+                    ...normalized,
                 },
-                school_ids: menus_schools.map((ms: any) => ms.school_id)
+                school_ids: menus_schools.map(ms => ms.school_id)
             };
         });
     },
 
     saveMenuWithSchools: async (
         menuId: string | undefined,
-        menu: any,
+        menu: RawMenuDishes & { type?: MenuType },
         schoolIds: string[],
         date: string
     ): Promise<string> => {
-        // The DB stores the English field names; the forms still send the
-        // bilingual shape, so map the Spanish aliases before saving. The menu
-        // and its schools go in a single call so a failed school never leaves a
-        // menu without schools.
+        const normalized = normalizeMenuDishes(menu);
         const { data, error } = await supabase.rpc('save_menu_with_schools', {
             p_menu_id: menuId || null,
             p_menu: {
                 type: menu.type || 'normal',
-                first_course: menu.first_course || menu.primero || '',
-                second_course: menu.second_course || menu.segundo || '',
-                side: menu.side || menu.guarnicion || null,
-                salad: menu.salad || menu.ensalada || null,
-                dessert: menu.dessert || menu.postre || null
+                first_course: normalized.first_course,
+                second_course: normalized.second_course,
+                side: normalized.side,
+                salad: normalized.salad,
+                dessert: normalized.dessert,
             },
             p_school_ids: schoolIds,
             p_date: date
@@ -169,11 +240,7 @@ export const MenuService = {
         return data as string;
     },
 
-    getMenuWithSchools: async (menuId: string): Promise<{
-        menu: any;
-        schools: { id: string; name: string }[];
-        date: string;
-    }> => {
+    getMenuWithSchools: async (menuId: string): Promise<MenuWithSchoolsResult> => {
         const { data, error } = await supabase
             .from('menus')
             .select(`
@@ -195,18 +262,43 @@ export const MenuService = {
             throw new Error(error.message);
         }
 
-        const { menus_schools, ...menuData } = data;
-        const schools = menus_schools.map((ms: any) => ms.schools);
+        interface DbMenuWithSchoolsRow extends RawMenuDishes {
+            id: string;
+            type?: MenuType;
+            name?: string;
+            startDate?: string;
+            endDate?: string;
+            start_date?: string;
+            end_date?: string;
+            allergens?: string[];
+            menus_schools: Array<{
+                school_id: string;
+                date: string;
+                schools: { id: string; name: string } | null;
+            }>;
+        }
+
+        const row = data as unknown as DbMenuWithSchoolsRow;
+        const { menus_schools = [], ...menuData } = row;
+        const schools = menus_schools
+            .map(ms => ms.schools)
+            .filter((s): s is { id: string; name: string } => s !== null && s !== undefined);
         const date = menus_schools[0]?.date || '';
+        const normalized = normalizeMenuDishes(menuData);
 
         return {
             menu: {
-                ...menuData,
-                first_course: menuData.first_course || menuData.primero,
-                second_course: menuData.second_course || menuData.segundo,
-                side: menuData.side || menuData.guarnicion,
-                salad: menuData.salad || menuData.ensalada,
-                dessert: menuData.dessert || menuData.postre,
+                id: menuData.id,
+                type: menuData.type || 'normal',
+                name: menuData.name,
+                startDate: menuData.startDate || menuData.start_date,
+                endDate: menuData.endDate || menuData.end_date,
+                allergens: menuData.allergens,
+                first_course: normalized.first_course,
+                second_course: normalized.second_course,
+                side: normalized.side || '',
+                salad: normalized.salad || '',
+                dessert: normalized.dessert || '',
             },
             schools,
             date
@@ -230,14 +322,17 @@ export const MenuService = {
             postre?: string | null;
         }>
     ): Promise<string[]> => {
-        const payload = specialMenus.map(m => ({
-            type: m.type,
-            first_course: m.first_course || m.primero || '',
-            second_course: m.second_course || m.segundo || '',
-            side: m.side || m.guarnicion || null,
-            salad: m.salad || m.ensalada || null,
-            dessert: m.dessert || m.postre || null,
-        }));
+        const payload = specialMenus.map(m => {
+            const normalized = normalizeMenuDishes(m);
+            return {
+                type: m.type,
+                first_course: normalized.first_course,
+                second_course: normalized.second_course,
+                side: normalized.side,
+                salad: normalized.salad,
+                dessert: normalized.dessert,
+            };
+        });
 
         const { data, error } = await supabase.rpc('save_special_menus', {
             p_school_ids: schoolIds,
@@ -275,7 +370,12 @@ export const MenuService = {
             throw new Error(candidateError.message);
         }
 
-        const candidateMenuIds = Array.from(new Set((candidateAssignments || []).map((a: any) => a.menu_id)));
+        interface AssignmentRow {
+            menu_id: string;
+        }
+
+        const candidateRows = (candidateAssignments || []) as AssignmentRow[];
+        const candidateMenuIds = Array.from(new Set(candidateRows.map(a => a.menu_id)));
         if (candidateMenuIds.length === 0) return [];
 
         const { data: allAssignments, error: allAssignError } = await supabase
@@ -300,11 +400,17 @@ export const MenuService = {
             throw new Error(menusError.message);
         }
 
+        interface DbSpecialMenuRow extends RawMenuDishes {
+            id: string;
+            type: string;
+        }
+
+        const specialRows = (data || []) as DbSpecialMenuRow[];
         const fullAssignments = (allAssignments || []) as { menu_id: string; school_id: string }[];
         const schoolKey = Array.from(new Set(schoolIds)).sort().join('|');
 
-        return (data || [])
-            .filter((m: any) => {
+        return specialRows
+            .filter(m => {
                 const assigned = fullAssignments
                     .filter(a => a.menu_id === m.id)
                     .map(a => a.school_id)
@@ -312,15 +418,18 @@ export const MenuService = {
                     .join('|');
                 return assigned === schoolKey;
             })
-            .map((m: any) => ({
-                id: m.id,
-                type: m.type,
-                first_course: m.first_course || m.primero || '',
-                second_course: m.second_course || m.segundo || '',
-                side: m.side || m.guarnicion || '',
-                salad: m.salad || m.ensalada || '',
-                dessert: m.dessert || m.postre || '',
-            }));
+            .map(m => {
+                const normalized = normalizeMenuDishes(m);
+                return {
+                    id: m.id,
+                    type: m.type,
+                    first_course: normalized.first_course,
+                    second_course: normalized.second_course,
+                    side: normalized.side || '',
+                    salad: normalized.salad || '',
+                    dessert: normalized.dessert || '',
+                };
+            });
     },
 
     deleteSpecialMenus: async (menuId: string): Promise<void> => {
