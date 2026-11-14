@@ -4,9 +4,11 @@ export interface Monitor {
     id: string;
     first_name: string;
     last_name: string;
-    code: string;
-    created_at: string;
+    code?: string;
+    created_at?: string;
 }
+
+export type Worker = Monitor;
 
 export interface CreateMonitorResult {
     ok: boolean;
@@ -16,7 +18,7 @@ export interface CreateMonitorResult {
 }
 
 export const MonitorService = {
-    getMonitorsBySchool: async (schoolId: string): Promise<Monitor[]> => {
+    getBySchool: async (schoolId: string): Promise<Monitor[]> => {
         const { data, error } = await supabase
             .from('monitors')
             .select(`
@@ -35,11 +37,23 @@ export const MonitorService = {
             throw new Error(error.message);
         }
 
-        // The query returns monitors with the junction table inside, we just return the monitor data
-        return data || [];
+        return (data || []).map(m => ({
+            id: m.id,
+            first_name: m.first_name || '',
+            last_name: m.last_name || '',
+            code: m.code != null ? String(m.code) : undefined,
+            created_at: m.created_at,
+        }));
     },
 
-    createMonitor: async (monitor: Pick<Monitor, 'first_name' | 'last_name' | 'code'>, schoolId: string): Promise<CreateMonitorResult> => {
+    getMonitorsBySchool: async (schoolId: string): Promise<Monitor[]> => {
+        return MonitorService.getBySchool(schoolId);
+    },
+
+    createMonitor: async (
+        monitor: Pick<Monitor, 'first_name' | 'last_name'> & { code: string },
+        schoolId: string
+    ): Promise<CreateMonitorResult> => {
         // The create_monitor RPC creates the auth user (email monitor.{code}@llumitaula.local
         // with the code as password), the public.users row with role 'monitor',
         // the monitors row and the link in monitors_schools.
@@ -58,10 +72,17 @@ export const MonitorService = {
         return data as CreateMonitorResult;
     },
 
-    updateMonitor: async (id: string, updates: Partial<Monitor>): Promise<Monitor> => {
+    updateMonitor: async (
+        id: string,
+        updates: Partial<Pick<Monitor, 'first_name' | 'last_name'>>
+    ): Promise<Monitor> => {
+        const cleanUpdates: Partial<Pick<Monitor, 'first_name' | 'last_name'>> = {};
+        if (updates.first_name !== undefined) cleanUpdates.first_name = updates.first_name.trim();
+        if (updates.last_name !== undefined) cleanUpdates.last_name = updates.last_name.trim();
+
         const { data, error } = await supabase
             .from('monitors')
-            .update(updates)
+            .update(cleanUpdates)
             .eq('id', id)
             .select()
             .single();
@@ -74,6 +95,13 @@ export const MonitorService = {
         return data;
     },
 
+    update: async (
+        id: string,
+        updates: Partial<Pick<Monitor, 'first_name' | 'last_name'>>
+    ): Promise<Monitor> => {
+        return MonitorService.updateMonitor(id, updates);
+    },
+
     deleteMonitor: async (id: string): Promise<void> => {
         const { error } = await supabase
             .from('monitors')
@@ -84,5 +112,11 @@ export const MonitorService = {
             console.error('Error deleting monitor:', error);
             throw new Error(error.message);
         }
-    }
+    },
+
+    delete: async (id: string): Promise<void> => {
+        return MonitorService.deleteMonitor(id);
+    },
 };
+
+export const WorkerService = MonitorService;
