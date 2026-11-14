@@ -124,34 +124,23 @@ export const useSpecialMenu = (menuId: string) => {
     }, [])
 
     const handleSave = useCallback(async () => {
-        if (!menu) return
+        if (!menu || schools.length === 0) return
         try {
             setIsSaving(true)
 
-            await MenuService.deleteSpecialMenus(menu.id)
-
             const schoolIds = schools.map(s => s.id)
-
-            for (const [groupName, fields] of Object.entries(matrixData)) {
-                const hasContent = Object.values(fields).some(v => !!v)
-                if (!hasContent) continue
-
-                const menuData = {
+            const specialsToSave = Object.entries(matrixData)
+                .filter(([, fields]) => Object.values(fields).some(v => !!v))
+                .map(([groupName, fields]) => ({
                     type: groupName,
                     first_course: fields.first_course,
                     second_course: fields.second_course,
                     side: fields.side,
                     salad: fields.salad,
                     dessert: fields.dessert,
-                }
+                }))
 
-                await MenuService.saveMenuWithSchools(
-                    undefined,
-                    menuData,
-                    schoolIds,
-                    date
-                )
-            }
+            await MenuService.saveSpecialMenus(schoolIds, date, specialsToSave)
         } catch (err) {
             console.error('Error saving special menus:', err)
             throw err

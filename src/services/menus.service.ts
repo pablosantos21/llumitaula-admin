@@ -213,6 +213,46 @@ export const MenuService = {
         };
     },
 
+    saveSpecialMenus: async (
+        schoolIds: string[],
+        date: string,
+        specialMenus: Array<{
+            type: string;
+            first_course?: string | null;
+            second_course?: string | null;
+            side?: string | null;
+            salad?: string | null;
+            dessert?: string | null;
+            primero?: string | null;
+            segundo?: string | null;
+            guarnicion?: string | null;
+            ensalada?: string | null;
+            postre?: string | null;
+        }>
+    ): Promise<string[]> => {
+        const payload = specialMenus.map(m => ({
+            type: m.type,
+            first_course: m.first_course || m.primero || '',
+            second_course: m.second_course || m.segundo || '',
+            side: m.side || m.guarnicion || null,
+            salad: m.salad || m.ensalada || null,
+            dessert: m.dessert || m.postre || null,
+        }));
+
+        const { data, error } = await supabase.rpc('save_special_menus', {
+            p_school_ids: schoolIds,
+            p_date: date,
+            p_menus: payload,
+        });
+
+        if (error) {
+            console.error('Error saving special menus:', error);
+            throw new Error(error.message);
+        }
+
+        return (data as string[]) || [];
+    },
+
     getSpecialMenusForDate: async (date: string, schoolIds: string[]): Promise<{
         id: string;
         type: string;
@@ -224,24 +264,35 @@ export const MenuService = {
     }[]> => {
         if (schoolIds.length === 0) return [];
 
-        const { data: assignments, error } = await supabase
+        const { data: candidateAssignments, error: candidateError } = await supabase
             .from('menus_schools')
-            .select('menu_id, school_id')
+            .select('menu_id')
             .eq('date', date)
             .in('school_id', schoolIds);
 
-        if (error) {
-            console.error('Error fetching menu assignments:', error);
-            throw new Error(error.message);
+        if (candidateError) {
+            console.error('Error fetching menu assignments:', candidateError);
+            throw new Error(candidateError.message);
         }
 
-        const menuIds = Array.from(new Set((assignments || []).map((a: any) => a.menu_id)));
-        if (menuIds.length === 0) return [];
+        const candidateMenuIds = Array.from(new Set((candidateAssignments || []).map((a: any) => a.menu_id)));
+        if (candidateMenuIds.length === 0) return [];
+
+        const { data: allAssignments, error: allAssignError } = await supabase
+            .from('menus_schools')
+            .select('menu_id, school_id')
+            .eq('date', date)
+            .in('menu_id', candidateMenuIds);
+
+        if (allAssignError) {
+            console.error('Error fetching all menu school assignments:', allAssignError);
+            throw new Error(allAssignError.message);
+        }
 
         const { data, error: menusError } = await supabase
             .from('menus')
             .select('*')
-            .in('id', menuIds)
+            .in('id', candidateMenuIds)
             .neq('type', 'normal');
 
         if (menusError) {
@@ -249,13 +300,14 @@ export const MenuService = {
             throw new Error(menusError.message);
         }
 
-        const schoolKey = [...schoolIds].sort().join('|');
+        const fullAssignments = (allAssignments || []) as { menu_id: string; school_id: string }[];
+        const schoolKey = Array.from(new Set(schoolIds)).sort().join('|');
 
         return (data || [])
             .filter((m: any) => {
-                const assigned = (assignments || [])
-                    .filter((a: any) => a.menu_id === m.id)
-                    .map((a: any) => a.school_id)
+                const assigned = fullAssignments
+                    .filter(a => a.menu_id === m.id)
+                    .map(a => a.school_id)
                     .sort()
                     .join('|');
                 return assigned === schoolKey;
@@ -263,18 +315,18 @@ export const MenuService = {
             .map((m: any) => ({
                 id: m.id,
                 type: m.type,
-                first_course: m.first_course || m.primero,
-                second_course: m.second_course || m.segundo,
-                side: m.side || m.guarnicion,
-                salad: m.salad || m.ensalada,
-                dessert: m.dessert || m.postre,
+                first_course: m.first_course || m.primero || '',
+                second_course: m.second_course || m.segundo || '',
+                side: m.side || m.guarnicion || '',
+                salad: m.salad || m.ensalada || '',
+                dessert: m.dessert || m.postre || '',
             }));
     },
 
     deleteSpecialMenus: async (menuId: string): Promise<void> => {
         const { data: assignments, error: fetchError } = await supabase
             .from('menus_schools')
-            .select('menu_id, date')
+            .select('school_id, date')
             .eq('menu_id', menuId);
 
         if (fetchError) {
@@ -282,55 +334,12 @@ export const MenuService = {
             throw new Error(fetchError.message);
         }
 
-        if (!assignments || assignments.length === 0) return;
+        const rows = (assignments || []) as { school_id: string; date: string }[];
+        if (rows.length === 0) return;
 
-        const date = assignments[0].date;
+        const date = rows[0].date;
+        const schoolIds = Array.from(new Set(rows.map(a => a.school_id)));
 
-        const { data: sameDay, error: sameDayError } = await supabase
-            .from('menus_schools')
-            .select('menu_id')
-            .eq('date', date);
-
-        if (sameDayError) {
-            console.error('Error fetching same-day menus:', sameDayError);
-            throw new Error(sameDayError.message);
-        }
-
-        const menuIds = sameDay.map((ms: any) => ms.menu_id);
-
-        const { data: specialMenus, error: specialError } = await supabase
-            .from('menus')
-            .select('id')
-            .in('id', menuIds)
-            .neq('type', 'normal');
-
-        if (specialError) {
-            console.error('Error fetching special menus:', specialError);
-            throw new Error(specialError.message);
-        }
-
-        const specialIds = specialMenus.map((m: any) => m.id);
-
-        if (specialIds.length > 0) {
-            const { error: delAssignError } = await supabase
-                .from('menus_schools')
-                .delete()
-                .in('menu_id', specialIds);
-
-            if (delAssignError) {
-                console.error('Error deleting special menu assignments:', delAssignError);
-                throw new Error(delAssignError.message);
-            }
-
-            const { error: delMenuError } = await supabase
-                .from('menus')
-                .delete()
-                .in('id', specialIds);
-
-            if (delMenuError) {
-                console.error('Error deleting special menus:', delMenuError);
-                throw new Error(delMenuError.message);
-            }
-        }
+        await MenuService.saveSpecialMenus(schoolIds, date, []);
     },
 };
