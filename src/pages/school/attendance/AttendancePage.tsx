@@ -17,17 +17,19 @@ type CellStatus = 'present' | 'absent' | 'pending' | 'not-planned';
 export default function AttendancePage() {
     const { schoolId } = useParams<{ schoolId: string }>();
     const [classes, setClasses] = useState<Class[]>([]);
-    const [children, setChildren] = useState<Child[]>([]);
+    const [schoolChildren, setSchoolChildren] = useState<Child[]>([]);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [month, setMonth] = useState(currentMonth());
     const [classId, setClassId] = useState('');
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingChildren, setIsLoadingChildren] = useState(true);
+    const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         let current = true;
         if (!schoolId) { setError('No se pudo identificar el colegio.'); setIsLoadingClasses(false); return; }
+        setIsLoadingClasses(true);
         ClassService.getClassesBySchool(schoolId).then(data => {
             if (!current) return;
             setClasses(data);
@@ -42,23 +44,44 @@ export default function AttendancePage() {
 
     useEffect(() => {
         let current = true;
+        if (!schoolId) { setSchoolChildren([]); setIsLoadingChildren(false); return; }
+        setIsLoadingChildren(true);
+        ChildService.getChildrenBySchool(schoolId).then(data => {
+            if (!current) return;
+            setSchoolChildren(data);
+        }).catch(err => {
+            console.error('Error loading school children:', err);
+            if (current) setError('No se pudieron cargar los alumnos del colegio.');
+        }).finally(() => { if (current) setIsLoadingChildren(false); });
+        return () => { current = false; };
+    }, [schoolId]);
+
+    const children = useMemo(() => {
+        if (!classId) return [];
+        return schoolChildren.filter(c => c.class_id === classId && c.is_active);
+    }, [schoolChildren, classId]);
+
+    useEffect(() => {
+        let current = true;
         const load = async () => {
-            if (!schoolId || !classId || !month) { setChildren([]); setRecords([]); return; }
+            if (!schoolId || !classId || !month) { setRecords([]); return; }
             try {
-                setIsLoading(true);
+                setIsLoadingAttendance(true);
                 const bounds = monthBounds(month);
-                const [allChildren, attendance] = await Promise.all([
-                    ChildService.getChildrenBySchool(schoolId),
-                    AttendanceService.getBySchool(schoolId, { dateFrom: bounds.from, dateTo: bounds.to, classId }),
-                ]);
+                const attendance = await AttendanceService.getBySchool(schoolId, {
+                    dateFrom: bounds.from,
+                    dateTo: bounds.to,
+                    classId,
+                });
                 if (!current) return;
-                setChildren(allChildren.filter(child => child.class_id === classId && child.is_active));
                 setRecords(attendance);
                 setError(null);
             } catch (err) {
                 console.error('Error loading monthly attendance:', err);
                 if (current) setError('No se pudo cargar la asistencia del mes.');
-            } finally { if (current) setIsLoading(false); }
+            } finally {
+                if (current) setIsLoadingAttendance(false);
+            }
         };
         void load();
         return () => { current = false; };
@@ -128,7 +151,7 @@ export default function AttendancePage() {
             </div>
         </div>
         {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</div>}
-        {isLoading || isLoadingClasses ? <div className="flex justify-center p-12" role="status"><Loader2 className="h-8 w-8 animate-spin text-primary-600" /></div> : classId && <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        {isLoadingClasses || isLoadingChildren || isLoadingAttendance ? <div className="flex justify-center p-12" role="status"><Loader2 className="h-8 w-8 animate-spin text-primary-600" /></div> : classId && <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="max-h-[75vh] overflow-auto">
                 <table className="min-w-full border-separate border-spacing-0 text-sm">
                     <thead className="sticky top-0 z-20 bg-gray-50"><tr>
