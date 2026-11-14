@@ -20,6 +20,11 @@ import { useEffect, useState } from 'react';
 import { cn } from '../lib/utils';
 import { SchoolService, type School } from '../services/schools.service';
 
+export interface DashboardOutletContext {
+    school: School | null;
+    setSchool: React.Dispatch<React.SetStateAction<School | null>>;
+}
+
 export default function DashboardLayout() {
     const { schoolId } = useParams<{ schoolId: string }>();
     const { user, logout, isAdmin } = useAuth();
@@ -283,7 +288,7 @@ export default function DashboardLayout() {
 
                 {/* Page Content */}
                 <main className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <Outlet />
+                    <Outlet context={{ school, setSchool } satisfies DashboardOutletContext} />
                 </main>
             </div>
         </div>

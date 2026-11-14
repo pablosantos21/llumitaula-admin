@@ -1,5 +1,5 @@
-import { utils, write } from 'xlsx';
 import { tableFromBytes } from './child-import-xlsx.ts';
+import { aoaToXlsxBytes, downloadXlsxBytes } from './xlsx-download.ts';
 
 /**
  * Plantilla .xlsx de ejemplo para la importación masiva de alumnos (#20).
@@ -65,13 +65,11 @@ export function buildImportTemplateTable(aulasDelColegio: readonly string[] = []
  * Se verifica con `read` en el script manual de #20 (round-trip).
  */
 export function buildImportTemplateBytes(aulasDelColegio: readonly string[] = []): Uint8Array {
-    const workbook = utils.book_new();
-    const sheet = utils.aoa_to_sheet(buildImportTemplateTable(aulasDelColegio));
-    sheet['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 64 }];
-    utils.book_append_sheet(workbook, sheet, IMPORT_TEMPLATE_SHEET_NAME);
-    const output = write(workbook, { type: 'array', bookType: 'xlsx' }) as unknown;
-    if (output instanceof Uint8Array) return output;
-    return new Uint8Array(output as ArrayBuffer);
+    return aoaToXlsxBytes(
+        buildImportTemplateTable(aulasDelColegio),
+        IMPORT_TEMPLATE_SHEET_NAME,
+        [{ wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 64 }]
+    );
 }
 
 /** Relee la plantilla generada como matriz (verificación manual, sin BD). */
@@ -82,19 +80,5 @@ export function readImportTemplateBytes(bytes: Uint8Array): unknown[][] | null {
 /** Descarga la plantilla en el navegador (solo DOM, sin escritura en BD). */
 export function downloadImportTemplate(aulasDelColegio: readonly string[] = []): void {
     const bytes = buildImportTemplateBytes(aulasDelColegio);
-    // Copia exacta de la vista: `write({type:'array'})` puede devolver un
-    // Uint8Array sobre un ArrayBuffer mayor, y `bytes.buffer` arrastraría
-    // basura al Blob y corrompería el .xlsx.
-    const exactCopy = bytes.slice();
-    const blob = new Blob([exactCopy.buffer as ArrayBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = IMPORT_TEMPLATE_FILENAME;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    downloadXlsxBytes(bytes, IMPORT_TEMPLATE_FILENAME);
 }

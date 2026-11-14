@@ -1,0 +1,151 @@
+import { useState } from "react"
+import { Button } from "../../../../components/ui/button"
+import { Input } from "../../../../components/ui/input"
+import { Label } from "../../../../components/ui/label"
+import type { Class } from "../../../../services/classes.service"
+import type { Allergen } from "../../../../services/allergens.service"
+import { LunchDaysField } from "./LunchDaysField"
+
+export interface ChildFormData {
+    first_name: string
+    last_name: string
+    class_id: string
+    allergenIds: string[]
+    lunch_weekdays: number[] | null
+}
+
+export interface ChildFormProps {
+    initialData?: ChildFormData
+    classes: Class[]
+    allergens: Allergen[]
+    isLoading?: boolean
+    submitLabel: string
+    loadingLabel: string
+    onCancel: () => void
+    onSubmit: (data: ChildFormData) => Promise<boolean | void> | void
+}
+
+export function ChildForm({
+    initialData,
+    classes,
+    allergens,
+    isLoading,
+    submitLabel,
+    loadingLabel,
+    onCancel,
+    onSubmit,
+}: ChildFormProps) {
+    const [firstName, setFirstName] = useState(initialData?.first_name ?? '')
+    const [lastName, setLastName] = useState(initialData?.last_name ?? '')
+    const [classId, setClassId] = useState(initialData?.class_id ?? '')
+    const [selectedAllergens, setSelectedAllergens] = useState<string[]>(initialData?.allergenIds ?? [])
+    const [lunchDays, setLunchDays] = useState<number[] | null>(initialData?.lunch_weekdays ?? null)
+
+    const toggleAllergen = (allergenId: string) => {
+        setSelectedAllergens(prev =>
+            prev.includes(allergenId)
+                ? prev.filter(id => id !== allergenId)
+                : [...prev, allergenId]
+        )
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!firstName.trim() || !lastName.trim() || !classId) return
+
+        await onSubmit({
+            first_name: firstName,
+            last_name: lastName,
+            class_id: classId,
+            allergenIds: selectedAllergens,
+            lunch_weekdays: lunchDays,
+        })
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="child-firstName">Nombre</Label>
+                    <Input
+                        id="child-firstName"
+                        value={firstName}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFirstName(e.target.value)}
+                        placeholder="Nombre del alumno"
+                        required
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="child-lastName">Apellidos</Label>
+                    <Input
+                        id="child-lastName"
+                        value={lastName}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLastName(e.target.value)}
+                        placeholder="Apellidos del alumno"
+                        required
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="child-class">Clase</Label>
+                <select
+                    id="child-class"
+                    value={classId}
+                    onChange={(e) => setClassId(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    required
+                >
+                    <option value="">Selecciona una clase</option>
+                    {classes.map((cls) => (
+                        <option key={cls.id} value={cls.id}>
+                            {cls.name}{!cls.is_active ? ' (Inactiva)' : ''}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="space-y-2">
+                <Label>Alérgenos</Label>
+                {allergens.length === 0 ? (
+                    <p className="text-sm text-gray-400">No hay alérgenos registrados</p>
+                ) : (
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded-md">
+                        {allergens.map(allergen => (
+                            <label
+                                key={allergen.id}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors ${
+                                    selectedAllergens.includes(allergen.id)
+                                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selectedAllergens.includes(allergen.id)}
+                                    onChange={() => toggleAllergen(allergen.id)}
+                                    className="sr-only"
+                                />
+                                {allergen.name}
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <LunchDaysField
+                value={lunchDays}
+                onChange={setLunchDays}
+            />
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
+                    Cancelar
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                    {isLoading ? loadingLabel : submitLabel}
+                </Button>
+            </div>
+        </form>
+    )
+}

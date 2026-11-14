@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { ClassService, type Class } from '../../../services/classes.service'
-import { SchoolService, type School } from '../../../services/schools.service'
+import { SchoolService } from '../../../services/schools.service'
+import type { DashboardOutletContext } from '../../../layouts/DashboardLayout'
 import { DataTable } from '../../../components/ui/data-table'
 import { Modal } from '../../../components/ui/modal'
 import { Button } from '../../../components/ui/button'
@@ -29,7 +30,9 @@ export default function ClassesPage() {
     const { user } = useAuth()
     const canManageClasses = user?.role === 'admin' || user?.role === 'supervisor'
     const canManageSupervisorAssignments = user?.role === 'admin'
-    const [school, setSchool] = useState<School | null>(null)
+    const outletContext = useOutletContext<DashboardOutletContext | null>()
+    const school = outletContext?.school ?? null
+    const setSchool = outletContext?.setSchool ?? (() => {})
     const [classes, setClasses] = useState<Class[]>([])
     const [capabilitySettings, setCapabilitySettings] = useState<CapabilitySetting[]>([])
     const [supervisorAssignments, setSupervisorAssignments] = useState<SchoolSupervisorAssignment[]>([])
@@ -60,8 +63,7 @@ export default function ClassesPage() {
             }
 
             try {
-                const [schoolData, classData, capabilityData, supervisorData] = await Promise.all([
-                    SchoolService.getSchoolById(schoolId),
+                const [classData, capabilityData, supervisorData] = await Promise.all([
                     ClassService.getClassesBySchool(schoolId),
                     CapabilityService.getSettings(schoolId),
                     canManageSupervisorAssignments
@@ -69,7 +71,6 @@ export default function ClassesPage() {
                         : Promise.resolve([]),
                 ])
                 if (isCurrent) {
-                    setSchool(schoolData)
                     setClasses(sortClasses(classData))
                     setCapabilitySettings(capabilityData)
                     setSupervisorAssignments(supervisorData)

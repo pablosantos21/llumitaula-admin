@@ -1,21 +1,9 @@
 import { useState, useCallback } from 'react'
 import { MenuService } from '@/services/menus.service'
-import type { MenuType } from '@/mocks/menus'
 import { formatDate } from '../utils/date-utils'
-import type { MenuGroup } from '../types'
+import type { MenuGroup, MenuType, NormalMenuFormData } from '../types'
 
-interface FormState {
-    id: string;
-    first_course: string;
-    second_course: string;
-    side: string;
-    salad: string;
-    dessert: string;
-    schoolIds: string[];
-    allergens: string[];
-}
-
-const initialFormState: FormState = {
+const initialFormState: NormalMenuFormData = {
     id: '',
     first_course: '',
     second_course: '',
@@ -31,7 +19,7 @@ export const useMenuForm = (selectedDate: Date | null, onSaveSuccess: () => void
     const [editingGroup, setEditingGroup] = useState<MenuGroup | null>(null)
     const [isSaving, setIsSaving] = useState(false)
 
-    const [formData, setFormData] = useState<FormState>(initialFormState)
+    const [formData, setFormData] = useState<NormalMenuFormData>(initialFormState)
 
     const openNormalMenuModal = useCallback((group?: MenuGroup) => {
         if (group) {

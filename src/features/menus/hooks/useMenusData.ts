@@ -3,15 +3,8 @@ import { MenuService, type DayCoverage, type DailyMenu } from '@/services/menus.
 import { ChildService } from '@/services/children.service'
 import { SchoolService, type School } from '@/services/schools.service'
 import { formatDate } from '../utils/date-utils'
-import type { MenuGroup, DayCoverageInfo, SpecialMenuChild, SpecialMenuVariant } from '../types'
-
-const DISH_FIELDS: { field: 'first_course' | 'second_course' | 'side' | 'salad' | 'dessert'; label: string }[] = [
-    { field: 'first_course', label: 'Primer Plato' },
-    { field: 'second_course', label: 'Segundo Plato' },
-    { field: 'side', label: 'Guarnición' },
-    { field: 'salad', label: 'Ensalada' },
-    { field: 'dessert', label: 'Postre' },
-]
+import type { MenuGroup, DayCoverageInfo, SpecialMenuChild } from '../types'
+import { pairBaseMenusWithVariants, groupChildrenByAllergenKey } from '../utils/menu-grouping'
 
 type SpecialMenuChildRow = Awaited<ReturnType<typeof ChildService.getChildrenAllergensBySchools>>[number]
 
@@ -142,75 +135,42 @@ export const useMenusData = () => {
                 return schools.find(s => s.id === id) || { id, name: `School ${id}` };
             });
 
-            // Menu records use a legacy bilingual shape in the shared schema.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const m = assignment.menu as any;
+            const m = assignment.menu;
             return {
                 menu: {
-                    ...m,
-                    first_course: m.first_course || m.primero,
-                    second_course: m.second_course || m.segundo,
-                    side: m.side || m.guarnicion,
-                    salad: m.salad || m.ensalada,
-                    dessert: m.dessert || m.postre,
-                    startDate: m.startDate || m.start_date,
-                    endDate: m.endDate || m.end_date
+                    id: m.id,
+                    type: m.type,
+                    first_course: m.first_course,
+                    second_course: m.second_course,
+                    side: m.side || '',
+                    salad: m.salad || '',
+                    dessert: m.dessert || '',
+                    startDate: m.startDate,
+                    endDate: m.endDate,
+                    allergens: m.allergens,
                 },
                 schools: menuSchools,
                 schoolIds: assignment.school_ids
             };
         });
 
-        const isSpecial = (type: string) => type !== 'normal'
-        const schoolKey = (ids: string[]) => [...ids].sort().join('|')
+        const isSpecial = (type: string) => type !== 'normal';
+        const bases = flat.filter(g => !isSpecial(g.menu.type));
+        const specials = flat.filter(g => isSpecial(g.menu.type));
 
-        const bases = flat.filter(g => !isSpecial(g.menu.type))
-        const specials = flat.filter(g => isSpecial(g.menu.type))
-
-        const childrenByCombo = new Map<string, SpecialMenuChild[]>()
-        specialMenuChildren.forEach(child => {
-            const combo = child.allergens.map(a => a.name).sort().join(' + ')
-            if (!childrenByCombo.has(combo)) childrenByCombo.set(combo, [])
-            childrenByCombo.get(combo)!.push({
+        const childrenMap = groupChildrenByAllergenKey(specialMenuChildren);
+        const childrenByCombo = new Map<string, SpecialMenuChild[]>();
+        for (const [key, children] of childrenMap.entries()) {
+            childrenByCombo.set(key, children.map(child => ({
                 id: child.id,
                 first_name: child.first_name,
                 last_name: child.last_name,
                 className: child.className,
-                schoolName: child.schoolName
-            })
-        })
+                schoolName: child.schoolName,
+            })));
+        }
 
-        const matched = new Set<string>()
-        const withVariants: MenuGroup[] = bases.map(base => {
-            const baseKey = schoolKey(base.schoolIds)
-            const variants: SpecialMenuVariant[] = []
-            for (const special of specials) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const m = special.menu as any
-                if (matched.has(special.menu.id)) continue
-                if (schoolKey(special.schoolIds) !== baseKey) continue
-                matched.add(special.menu.id)
-                const changed = DISH_FIELDS
-                    .filter(f => (m[f.field] || '') !== (base.menu[f.field] || ''))
-                    .map(f => ({ field: f.field, label: f.label, value: m[f.field] || '—' }))
-                variants.push({
-                    id: m.id,
-                    type: m.type,
-                    schoolIds: special.schoolIds,
-                    children: childrenByCombo.get(m.type) || [],
-                    changed,
-                    first_course: m.first_course || '',
-                    second_course: m.second_course || '',
-                    side: m.side || '',
-                    salad: m.salad || '',
-                    dessert: m.dessert || ''
-                })
-            }
-            return variants.length > 0 ? { ...base, variants } : base
-        })
-
-        const orphanSpecials = specials.filter(s => !matched.has(s.menu.id))
-        return [...withVariants, ...orphanSpecials];
+        return pairBaseMenusWithVariants(bases, specials, childrenByCombo);
     }, [selectedDate, dailyAssignments, schools, specialMenuChildren]);
 
     const assignedSchoolIds = useMemo(() => {

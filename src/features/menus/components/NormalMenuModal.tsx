@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,14 +5,14 @@ import { Label } from '@/components/ui/label'
 import { Check, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { School } from '@/services/schools.service'
-import type { MenuGroup } from '../types'
+import type { MenuGroup, NormalMenuFormData } from '../types'
 
 interface NormalMenuModalProps {
     isOpen: boolean;
     onClose: () => void;
     editingGroup: MenuGroup | null;
-    formData: any;
-    setFormData: (data: any) => void;
+    formData: NormalMenuFormData;
+    setFormData: React.Dispatch<React.SetStateAction<NormalMenuFormData>> | ((data: NormalMenuFormData) => void);
     schools: School[];
     assignedSchoolIds: Set<string>;
     toggleSelection: (id: string, field: 'schoolIds' | 'allergens') => void;
@@ -108,29 +107,6 @@ export const NormalMenuModal = ({
                         })}
                     </div>
                 </div>
-
-                {/* <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alérgenos e Intolerancias (Principal)</h4>
-                    <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                        {ALLERGENS.map(allergen => (
-                            <button
-                                key={allergen.id}
-                                type="button"
-                                onClick={() => toggleSelection(allergen.id, 'allergens')}
-                                title={allergen.name}
-                                className={cn(
-                                    "flex flex-col items-center justify-center p-2 rounded-lg border transition-all gap-1",
-                                    formData.allergens.includes(allergen.id)
-                                        ? "border-red-200 bg-red-50 text-red-700 shadow-sm"
-                                        : "border-gray-100 hover:border-gray-200 grayscale opacity-60 hover:grayscale-0 hover:opacity-100"
-                                )}
-                            >
-                                <span className="text-xl">{allergen.icon}</span>
-                                <span className="text-[8px] font-bold text-center leading-tight truncate w-full">{allergen.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div> */}
 
                 <div className="flex gap-3 pt-4 sticky bottom-0 bg-white border-t border-gray-100 py-4 mt-4">
                     <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
