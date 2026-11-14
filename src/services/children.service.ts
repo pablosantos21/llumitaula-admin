@@ -29,6 +29,7 @@ export interface ChildWithSchool {
     first_name: string;
     last_name: string;
     class_id: string;
+    is_active?: boolean;
     created_at: string;
     child_allergens?: {
         allergen_id: string;
@@ -226,6 +227,7 @@ export const ChildService = {
                 first_name,
                 last_name,
                 class_id,
+                is_active,
                 created_at,
                 child_allergens(
                     allergen_id,
@@ -244,6 +246,7 @@ export const ChildService = {
                     )
                 )
             `)
+            .eq('is_active', true)
             .order('first_name');
 
         if (error) {
@@ -262,8 +265,9 @@ export const ChildService = {
                 first_name,
                 last_name,
                 class_id,
+                is_active,
                 created_at,
-                child_allergens(
+                child_allergens!inner(
                     allergen_id,
                     allergens(
                         id,
@@ -280,7 +284,7 @@ export const ChildService = {
                     )
                 )
             `)
-            .not('child_allergens', 'is', null)
+            .eq('is_active', true)
             .order('first_name');
 
         if (error) {
@@ -299,6 +303,10 @@ export const ChildService = {
         className?: string;
         schoolName?: string;
     }[]> => {
+        if (!schoolIds || schoolIds.length === 0) {
+            return [];
+        }
+
         const { data, error } = await supabase
             .from('children')
             .select(`
@@ -315,7 +323,7 @@ export const ChildService = {
                         name
                     )
                 ),
-                child_allergens(
+                child_allergens!inner(
                     allergen_id,
                     allergens(
                         id,
@@ -324,7 +332,7 @@ export const ChildService = {
                 )
             `)
             .in('classes.school_id', schoolIds)
-            .not('child_allergens', 'is', null)
+            .eq('is_active', true)
             .order('first_name');
 
         if (error) {
