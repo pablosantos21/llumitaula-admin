@@ -45,13 +45,18 @@ export const SchoolService = {
         return data;
     },
     deleteSchool: async (id: string): Promise<void> => {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('schools')
             .delete()
             .eq('id', id)
+            .select('id')
 
         if (error) {
             throw new Error(error.message);
+        }
+
+        if (!data || data.length === 0) {
+            throw new Error('No se pudo eliminar el colegio o no tienes permiso.');
         }
     },
     getSchoolById: async (id: string): Promise<School> => {

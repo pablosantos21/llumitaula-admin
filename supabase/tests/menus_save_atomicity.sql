@@ -10,12 +10,15 @@
 
 begin;
 
-select plan(16);
+select plan(19);
 
 set local role postgres;
 
 -- Deterministic fixtures: schools A (...401), B (...402), C (...403) and a
 -- menu M0 (...901) already served at school A on 2026-09-25.
+
+insert into public.users (id, role, full_name, active) values
+  ('00000000-0000-4000-8000-000000000191'::uuid, 'admin', 'Menu Admin', true);
 
 insert into public.schools (id, name) values
   ('00000000-0000-4000-8000-000000000401'::uuid, 'School A'),
@@ -59,6 +62,14 @@ select ok(
 -- ── Creating a menu for several schools ──────────────────────────────────────
 
 set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'sub', '00000000-0000-4000-8000-000000000191',
+    'role', 'admin'
+  )::text,
+  true
+);
 
 create temp table tmp_created (menu_id uuid, served_on date);
 

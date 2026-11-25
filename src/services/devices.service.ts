@@ -66,12 +66,16 @@ export const DeviceService = {
     },
 
     remove: async (id: string): Promise<void> => {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('devices')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .select('id');
 
         if (error) throw new Error(error.message);
+        if (!data || data.length === 0) {
+            throw new Error('No se pudo eliminar el dispositivo o no tienes permiso.');
+        }
     },
 
     generateConfigCode: async (id: string): Promise<string> => {

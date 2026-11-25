@@ -347,6 +347,21 @@ export function collectRowsToInsert(verdicts: readonly RowVerdict[]): ImportInse
     return toInsert;
 }
 
+const FORMULA_PREFIX_RE = /^[\t\r\n]*[=+\-@]/;
+
+/**
+ * Neutraliza celdas de texto que comienzan por prefijos de fórmula (`=`, `+`, `-`, `@`,
+ * tabulador o retorno de carro) para prevenir Formula/CSV Injection al abrir el
+ * reporte descargado en Excel o LibreOffice.
+ */
+export function sanitizeSpreadsheetCell(value: string): string {
+    if (value === '') return value;
+    if (FORMULA_PREFIX_RE.test(value) || value.startsWith('\t') || value.startsWith('\r')) {
+        return `'${value}`;
+    }
+    return value;
+}
+
 /**
  * Tabla pura del reporte de errores descargable (#21): cabecera canónica en
  * español + una línea por error (una fila con 2 errores = 2 líneas) con el
@@ -359,12 +374,12 @@ export function buildErrorReportTable(result: ImportValidationResult): unknown[]
     for (const line of buildErrorReportRows(result)) {
         table.push([
             line.filaExcel,
-            line.nombre,
-            line.apellidos,
-            line.aula,
+            sanitizeSpreadsheetCell(line.nombre),
+            sanitizeSpreadsheetCell(line.apellidos),
+            sanitizeSpreadsheetCell(line.aula),
             line.campo,
-            line.valorOriginal,
-            line.motivo,
+            sanitizeSpreadsheetCell(line.valorOriginal),
+            sanitizeSpreadsheetCell(line.motivo),
         ]);
     }
     table.push([]);

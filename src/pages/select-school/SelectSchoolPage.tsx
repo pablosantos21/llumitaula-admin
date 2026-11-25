@@ -10,12 +10,14 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 
 export default function SelectSchoolPage() {
-    const { user, logout } = useAuth()
+    const { user, isAdmin, logout } = useAuth()
+    const canManageSchools = user?.role === 'admin'
 
     const navigate = useNavigate()
     const [schools, setSchools] = useState<School[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [actionError, setActionError] = useState<string | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [newSchoolName, setNewSchoolName] = useState('')
     const [isCreating, setIsCreating] = useState(false)
@@ -50,16 +52,18 @@ export default function SelectSchoolPage() {
 
     const handleCreateSchool = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!newSchoolName.trim()) return
+        if (!canManageSchools || !newSchoolName.trim()) return
 
         setIsCreating(true)
+        setActionError(null)
         try {
-            const newSchool = await SchoolService.createSchool(newSchoolName)
+            const newSchool = await SchoolService.createSchool(newSchoolName.trim())
             setSchools(prev => [...prev, newSchool])
             setIsModalOpen(false)
             setNewSchoolName('')
         } catch (err) {
             console.error('Error creating school:', err)
+            setActionError('No se pudo crear el colegio. Inténtalo de nuevo.')
         } finally {
             setIsCreating(false)
         }
@@ -67,14 +71,17 @@ export default function SelectSchoolPage() {
 
     const confirmDelete = (e: React.MouseEvent, school: School) => {
         e.stopPropagation()
+        if (!canManageSchools) return
+        setActionError(null)
         setSchoolToDelete(school)
         setIsDeleteModalOpen(true)
     }
 
     const handleDeleteSchool = async () => {
-        if (!schoolToDelete) return
+        if (!canManageSchools || !schoolToDelete) return
 
         setIsDeleting(true)
+        setActionError(null)
         try {
             await SchoolService.deleteSchool(schoolToDelete.id)
             setSchools(prev => prev.filter(s => s.id !== schoolToDelete.id))
@@ -82,6 +89,7 @@ export default function SelectSchoolPage() {
             setSchoolToDelete(null)
         } catch (err) {
             console.error('Error deleting school:', err)
+            setActionError('No se pudo eliminar el colegio. Comprueba tus permisos e inténtalo de nuevo.')
         } finally {
             setIsDeleting(false)
         }
@@ -95,11 +103,15 @@ export default function SelectSchoolPage() {
                         <SchoolIcon className="h-6 w-6 text-primary-600" />
                         <h1 className="text-xl font-bold text-gray-900">Catering Admin</h1>
                     </div>
-                    <div className="h-6 w-px bg-gray-200" />
-                    <Button variant="ghost" size="sm" onClick={() => navigate('/menus')} className="text-gray-600 hover:text-primary-600 hover:bg-primary-50">
-                        <Utensils className="h-4 w-4 mr-2" />
-                        Gestionar Menús
-                    </Button>
+                    {isAdmin && (
+                        <>
+                            <div className="h-6 w-px bg-gray-200" />
+                            <Button variant="ghost" size="sm" onClick={() => navigate('/menus')} className="text-gray-600 hover:text-primary-600 hover:bg-primary-50">
+                                <Utensils className="h-4 w-4 mr-2" />
+                                Gestionar Menús
+                            </Button>
+                        </>
+                    )}
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="text-sm text-gray-600">Hola, {user?.name}</span>
@@ -127,6 +139,11 @@ export default function SelectSchoolPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
+                        {actionError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm" role="alert">
+                                {actionError}
+                            </div>
+                        )}
                         {schools.map((school) => (
                             <Card
                                 key={school.id}
@@ -144,14 +161,17 @@ export default function SelectSchoolPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                            onClick={(e) => confirmDelete(e, school)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {canManageSchools && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                aria-label={`Eliminar ${school.name}`}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                                onClick={(e) => confirmDelete(e, school)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                         <Button variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity text-primary-600">
                                             Seleccionar
                                         </Button>
@@ -166,103 +186,122 @@ export default function SelectSchoolPage() {
                             </div>
                         )}
 
-                        <Button
-                            variant="outline"
-                            className="p-8 border-dashed border-2 hover:border-primary-500 hover:bg-primary-50/30 flex flex-col h-auto gap-2"
-                            onClick={() => setIsModalOpen(true)}
-                        >
-                            <Plus className="h-6 w-6 text-primary-600" />
-                            <span className="font-semibold text-gray-900">Añadir nuevo colegio</span>
-                        </Button>
+                        {canManageSchools && (
+                            <Button
+                                variant="outline"
+                                className="p-8 border-dashed border-2 hover:border-primary-500 hover:bg-primary-50/30 flex flex-col h-auto gap-2"
+                                onClick={() => {
+                                    setActionError(null)
+                                    setIsModalOpen(true)
+                                }}
+                            >
+                                <Plus className="h-6 w-6 text-primary-600" />
+                                <span className="font-semibold text-gray-900">Añadir nuevo colegio</span>
+                            </Button>
+                        )}
                     </div>
                 )}
 
-                <Modal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    title="Añadir nuevo colegio"
-                >
-                    <form onSubmit={handleCreateSchool} className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="school-name">Nombre del colegio</Label>
-                            <Input
-                                id="school-name"
-                                value={newSchoolName}
-                                onChange={(e) => setNewSchoolName(e.target.value)}
-                                placeholder="Ej. Colegio San José"
-                                required
-                                autoFocus
-                            />
-                        </div>
-                        <div className="flex justify-end gap-3 mt-8">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => setIsModalOpen(false)}
-                                disabled={isCreating}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={isCreating || !newSchoolName.trim()}
-                                className="bg-primary-600 hover:bg-primary-700 text-white"
-                            >
-                                {isCreating ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Creando...
-                                    </>
-                                ) : (
-                                    'Crear colegio'
+                {canManageSchools && (
+                    <>
+                        <Modal
+                            isOpen={isModalOpen}
+                            onClose={() => !isCreating && setIsModalOpen(false)}
+                            title="Añadir nuevo colegio"
+                        >
+                            <form onSubmit={handleCreateSchool} className="space-y-6">
+                                {actionError && (
+                                    <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm" role="alert">
+                                        {actionError}
+                                    </div>
                                 )}
-                            </Button>
-                        </div>
-                    </form>
-                </Modal>
+                                <div className="space-y-2">
+                                    <Label htmlFor="school-name">Nombre del colegio</Label>
+                                    <Input
+                                        id="school-name"
+                                        value={newSchoolName}
+                                        onChange={(e) => setNewSchoolName(e.target.value)}
+                                        placeholder="Ej. Colegio San José"
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="flex justify-end gap-3 mt-8">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => setIsModalOpen(false)}
+                                        disabled={isCreating}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={isCreating || !newSchoolName.trim()}
+                                        className="bg-primary-600 hover:bg-primary-700 text-white"
+                                    >
+                                        {isCreating ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Creando...
+                                            </>
+                                        ) : (
+                                            'Crear colegio'
+                                        )}
+                                    </Button>
+                                </div>
+                            </form>
+                        </Modal>
 
-                <Modal
-                    isOpen={isDeleteModalOpen}
-                    onClose={() => setIsDeleteModalOpen(false)}
-                    title="Eliminar colegio"
-                >
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-100">
-                            <AlertTriangle className="h-5 w-5 shrink-0" />
-                            <p className="text-sm font-medium">
-                                Esta acción no se puede deshacer. Se eliminarán todos los datos asociados al colegio <strong>{schoolToDelete?.name}</strong>.
-                            </p>
-                        </div>
-                        <p className="text-gray-600">
-                            ¿Estás seguro de que quieres eliminar este colegio?
-                        </p>
-                        <div className="flex justify-end gap-3 mt-8">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => setIsDeleteModalOpen(false)}
-                                disabled={isDeleting}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="danger"
-                                onClick={handleDeleteSchool}
-                                disabled={isDeleting}
-                            >
-                                {isDeleting ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Eliminando...
-                                    </>
-                                ) : (
-                                    'Eliminar colegio'
+                        <Modal
+                            isOpen={isDeleteModalOpen}
+                            onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+                            title="Eliminar colegio"
+                        >
+                            <div className="space-y-4">
+                                {actionError && (
+                                    <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm" role="alert">
+                                        {actionError}
+                                    </div>
                                 )}
-                            </Button>
-                        </div>
-                    </div>
-                </Modal>
+                                <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-100">
+                                    <AlertTriangle className="h-5 w-5 shrink-0" />
+                                    <p className="text-sm font-medium">
+                                        Esta acción no se puede deshacer. Se eliminarán todos los datos asociados al colegio <strong>{schoolToDelete?.name}</strong>.
+                                    </p>
+                                </div>
+                                <p className="text-gray-600">
+                                    ¿Estás seguro de que quieres eliminar este colegio?
+                                </p>
+                                <div className="flex justify-end gap-3 mt-8">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => setIsDeleteModalOpen(false)}
+                                        disabled={isDeleting}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="danger"
+                                        onClick={handleDeleteSchool}
+                                        disabled={isDeleting}
+                                    >
+                                        {isDeleting ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Eliminando...
+                                            </>
+                                        ) : (
+                                            'Eliminar colegio'
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </Modal>
+                    </>
+                )}
             </main>
         </div>
     )
