@@ -1,4 +1,4 @@
-import { utils, write } from 'xlsx';
+import { writeXlsxBytes } from './xlsx-codec.ts';
 
 /**
  * Convierte una matriz de valores (AOA) a bytes Uint8Array de un archivo .xlsx.
@@ -8,15 +8,7 @@ export function aoaToXlsxBytes(
     sheetName: string = 'Sheet1',
     colWidths?: Array<{ wch: number }>
 ): Uint8Array {
-    const workbook = utils.book_new();
-    const sheet = utils.aoa_to_sheet(table);
-    if (colWidths) {
-        sheet['!cols'] = colWidths;
-    }
-    utils.book_append_sheet(workbook, sheet, sheetName);
-    const output = write(workbook, { type: 'array', bookType: 'xlsx' }) as unknown;
-    if (output instanceof Uint8Array) return output;
-    return new Uint8Array(output as ArrayBuffer);
+    return writeXlsxBytes(table, sheetName, colWidths);
 }
 
 /**

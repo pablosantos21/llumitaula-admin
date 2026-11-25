@@ -51,9 +51,9 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Navigate to="/select-school" replace />} />
             <Route path="/select-school" element={<SelectSchoolPage />} />
-            <Route path="/menus" element={<MenusPage />} />
 
             <Route element={<AdminRoute />}>
+              <Route path="/menus" element={<MenusPage />} />
               <Route path="/menus/:menuId" element={<SpecialMenuPage />} />
 
               <Route path="/school/:schoolId" element={<DashboardLayout />}>

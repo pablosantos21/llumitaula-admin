@@ -162,30 +162,14 @@ export const ChildService = {
     },
 
     setChildAllergens: async (childId: string, allergenIds: string[]): Promise<void> => {
-        const { error: deleteError } = await supabase
-            .from('child_allergens')
-            .delete()
-            .eq('child_id', childId);
+        const { error } = await supabase.rpc('set_child_allergens', {
+            p_child_id: childId,
+            p_allergen_ids: allergenIds,
+        });
 
-        if (deleteError) {
-            console.error('Error deleting child allergens:', deleteError);
-            throw new Error(deleteError.message);
-        }
-
-        if (allergenIds.length > 0) {
-            const rows = allergenIds.map(allergenId => ({
-                child_id: childId,
-                allergen_id: allergenId,
-            }));
-
-            const { error: insertError } = await supabase
-                .from('child_allergens')
-                .insert(rows);
-
-            if (insertError) {
-                console.error('Error inserting child allergens:', insertError);
-                throw new Error(insertError.message);
-            }
+        if (error) {
+            console.error('Error setting child allergens:', error);
+            throw new Error(error.message);
         }
     },
 

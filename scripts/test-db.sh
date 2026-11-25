@@ -56,6 +56,7 @@ MIGRATIONS=(
   "20261005120000_child_lunch_days.sql"
   "20261006120000_daily_attendance.sql"
   "20261014120000_save_special_menus.sql"
+  "20261125160000_security_hardening_rls_and_integrity.sql"
 )
 
 for name in "${MIGRATIONS[@]}"; do

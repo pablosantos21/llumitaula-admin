@@ -67,7 +67,11 @@ create table if not exists public.worker_classrooms (
 create table if not exists public.monitors (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
-  school_id uuid not null references public.schools(id)
+  school_id uuid not null references public.schools(id),
+  first_name text,
+  last_name text,
+  code smallint,
+  created_at timestamptz default now()
 );
 
 create table if not exists public.monitors_schools (
@@ -75,6 +79,29 @@ create table if not exists public.monitors_schools (
   school_id uuid not null references public.schools(id),
   primary key (monitor_id, school_id)
 );
+
+create table if not exists public.allergens (
+  id uuid primary key default gen_random_uuid(),
+  name text not null
+);
+
+create table if not exists public.child_allergens (
+  child_id uuid not null references public.children(id) on delete cascade,
+  allergen_id uuid not null references public.allergens(id) on delete cascade,
+  primary key (child_id, allergen_id)
+);
+
+create table if not exists public.incidents (
+  id uuid primary key default gen_random_uuid(),
+  child_id uuid not null references public.children(id) on delete cascade,
+  description text not null,
+  created_at timestamptz not null default now()
+);
+
+create or replace view public.meal_history as
+  select ch.id as child_id, cl.school_id
+    from public.children ch
+    join public.classes cl on cl.id = ch.class_id;
 
 -- Devices mirror the shared schema: the fase-2 layout plus the claim columns
 -- added by the worker's device_claims migration.

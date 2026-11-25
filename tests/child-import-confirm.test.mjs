@@ -4,6 +4,7 @@ import {
   buildErrorReportTable,
   collectRowsToInsert,
   ERROR_REPORT_HEADERS,
+  sanitizeSpreadsheetCell,
   validateChildImportRows,
 } from "../src/lib/child-import.ts";
 
@@ -142,4 +143,36 @@ test("buildErrorReportTable sin errores solo deja cabecera + resumen", () => {
   assert.ok(table.length >= 2);
   const flat = table.map((r) => String(r[0]));
   assert.ok(flat.some((cell) => cell.includes("total")));
+});
+
+test("sanitizeSpreadsheetCell neutraliza prefijos de fórmula (=, +, -, @, tab, cr)", () => {
+  assert.equal(sanitizeSpreadsheetCell("=SUM(A1:A2)"), "'=SUM(A1:A2)");
+  assert.equal(sanitizeSpreadsheetCell("+cmd|' /C calc'!A0"), "'+cmd|' /C calc'!A0");
+  assert.equal(sanitizeSpreadsheetCell("-1+1"), "'-1+1");
+  assert.equal(sanitizeSpreadsheetCell("@SUM(1+1)"), "'@SUM(1+1)");
+  assert.equal(sanitizeSpreadsheetCell("\t=1+1"), "'\t=1+1");
+  assert.equal(sanitizeSpreadsheetCell("Aula A1"), "Aula A1");
+  assert.equal(sanitizeSpreadsheetCell(""), "");
+});
+
+test("buildErrorReportTable neutraliza posibles fórmulas en campos del usuario y valor_original", () => {
+  const result = validateChildImportRows({
+    rows: [
+      row({
+        excelRowNumber: 4,
+        nombre: "=HYPERLINK(\"http://evil\",\"click\")",
+        apellidos: "+1+1",
+        aula: "@AULA_MALA",
+      }),
+    ],
+    classes,
+    existingChildren: [],
+  });
+
+  const table = buildErrorReportTable(result);
+  const errorRow = table[1];
+  assert.equal(errorRow[1], "'=HYPERLINK(\"http://evil\",\"click\")");
+  assert.equal(errorRow[2], "'+1+1");
+  assert.equal(errorRow[3], "'@AULA_MALA");
+  assert.equal(errorRow[5], "'@AULA_MALA");
 });

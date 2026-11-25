@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { read, utils } from "xlsx";
+import { zipSync, strToU8 } from "fflate";
 import { aoaToXlsxBytes, downloadXlsxBytes } from "../src/lib/xlsx-download.ts";
-import { tableFromBytes } from "../src/lib/child-import-xlsx.ts";
+import {
+  MAX_IMPORT_FILE_BYTES,
+  dryRunImportFile,
+  parseImportWorkbookBytes,
+  tableFromBytes,
+} from "../src/lib/child-import-xlsx.ts";
+import { readXlsxFirstSheet } from "../src/lib/xlsx-codec.ts";
 import { mapSupabaseUser } from "../src/services/auth.service.ts";
 
 test("aoaToXlsxBytes generates a valid Uint8Array instance", () => {
@@ -40,26 +46,72 @@ test("aoaToXlsxBytes respects custom sheetName and column widths", () => {
   const colWidths = [{ wch: 10 }, { wch: 30 }, { wch: 15 }];
 
   const bytes = aoaToXlsxBytes(table, customSheet, colWidths);
-  const workbook = read(bytes, { type: "array", cellStyles: true });
+  const parsed = readXlsxFirstSheet(bytes);
 
-  assert.deepEqual(workbook.SheetNames, [customSheet]);
-  const sheet = workbook.Sheets[customSheet];
-  assert.ok(sheet, "Custom sheet must exist in workbook");
-  assert.deepEqual(
-    sheet["!cols"]?.map((c) => c.wch),
-    [10, 30, 15]
-  );
-
-  const json = utils.sheet_to_json(sheet, { header: 1 });
-  assert.deepEqual(json, table);
+  assert.ok(parsed !== null, "Parsed workbook must not be null");
+  assert.equal(parsed.sheetName, customSheet);
+  assert.deepEqual(parsed.colWidths, [10, 30, 15]);
+  assert.deepEqual(parsed.rows, table);
 });
 
 test("aoaToXlsxBytes defaults sheetName to 'Sheet1' when omitted", () => {
   const table = [["Header1", "Header2"]];
   const bytes = aoaToXlsxBytes(table);
-  const workbook = read(bytes, { type: "array" });
+  const parsed = readXlsxFirstSheet(bytes);
 
-  assert.deepEqual(workbook.SheetNames, ["Sheet1"]);
+  assert.ok(parsed !== null);
+  assert.equal(parsed.sheetName, "Sheet1");
+});
+
+test("tableFromBytes reads sharedStrings, sparse cells, blank rows, and XML entities", () => {
+  const xlsx = zipSync({
+    "[Content_Types].xml": strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'
+    ),
+    "xl/workbook.xml": strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Datos" sheetId="1" r:id="rId1"/></sheets></workbook>'
+    ),
+    "xl/_rels/workbook.xml.rels": strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>'
+    ),
+    "xl/sharedStrings.xml": strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?><sst><si><t>nombre</t></si><si><t>apellidos</t></si><si><t>aula</t></si><si><r><t>Ana </t></r><r><t>&amp; Co</t></r></si><si><t>García</t></si><si><t>1º A</t></si></sst>'
+    ),
+    "xl/worksheets/sheet1.xml": strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?><worksheet><sheetData>' +
+        '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row>' +
+        '<row r="3"><c r="A3" t="s"><v>3</v></c><c r="C3" t="s"><v>5</v></c></row>' +
+      '</sheetData></worksheet>'
+    ),
+  });
+
+  const parsed = tableFromBytes(xlsx);
+  assert.deepEqual(parsed, [
+    ["nombre", "apellidos", "aula"],
+    [],
+    ["Ana & Co", null, "1º A"],
+  ]);
+});
+
+test("dryRunImportFile and parseImportWorkbookBytes reject files larger than MAX_IMPORT_FILE_BYTES", async () => {
+  let arrayBufferCalled = false;
+  const fakeLargeFile = {
+    size: MAX_IMPORT_FILE_BYTES + 1,
+    arrayBuffer: async () => {
+      arrayBufferCalled = true;
+      return new ArrayBuffer(0);
+    },
+  };
+
+  const result = await dryRunImportFile(fakeLargeFile, { classes: [], existingChildren: [] });
+  assert.equal(result.ok, false);
+  assert.equal(arrayBufferCalled, false, "Should reject oversized file before reading into memory");
+  assert.match(result.motivo, /5 MB/);
+
+  const oversizedBytes = new Uint8Array(MAX_IMPORT_FILE_BYTES + 1);
+  const bytesResult = parseImportWorkbookBytes(oversizedBytes);
+  assert.equal(bytesResult.ok, false);
+  assert.match(bytesResult.motivo, /5 MB/);
 });
 
 test("downloadXlsxBytes is an exported function accepting bytes and filename", () => {

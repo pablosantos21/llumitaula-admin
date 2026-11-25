@@ -155,50 +155,54 @@ SELECT set_config('request.jwt.claims', json_build_object(
 -- School B school value and class override as cross-tenant denial fixtures.
 INSERT INTO public.school_capabilities (school_id, capability, enabled) VALUES
   ('00000000-0000-4000-8000-000000000202'::uuid, 'family_meal_records', false);
+WITH changed AS (
+  UPDATE public.school_capabilities SET enabled = false
+   WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
+     AND capability = 'family_meal_records'
+   RETURNING 1
+)
 SELECT is(
-  (WITH changed AS (
-    UPDATE public.school_capabilities SET enabled = false
-     WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
-       AND capability = 'family_meal_records'
-     RETURNING 1
-  ) SELECT count(*) FROM changed),
+  (SELECT count(*) FROM changed),
   1::bigint,
   'admin can directly update a school capability through RLS'
 );
 INSERT INTO public.school_capabilities (school_id, capability, enabled) VALUES
   ('00000000-0000-4000-8000-000000000202'::uuid, 'monitor_daily_summary', false);
+WITH removed AS (
+  DELETE FROM public.school_capabilities
+   WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
+     AND capability = 'monitor_daily_summary'
+   RETURNING 1
+)
 SELECT is(
-  (WITH removed AS (
-    DELETE FROM public.school_capabilities
-     WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
-       AND capability = 'monitor_daily_summary'
-     RETURNING 1
-  ) SELECT count(*) FROM removed),
+  (SELECT count(*) FROM removed),
   1::bigint,
   'admin can directly delete a school capability through RLS'
 );
 
 INSERT INTO public.class_capability_overrides (class_id, capability, enabled) VALUES
   ('00000000-0000-4000-8000-000000000303'::uuid, 'family_meal_records', false);
+WITH changed AS (
+  UPDATE public.class_capability_overrides SET enabled = false
+   WHERE class_id = '00000000-0000-4000-8000-000000000303'::uuid
+     AND capability = 'family_meal_records'
+   RETURNING 1
+)
 SELECT is(
-  (WITH changed AS (
-    UPDATE public.class_capability_overrides SET enabled = false
-     WHERE class_id = '00000000-0000-4000-8000-000000000303'::uuid
-       AND capability = 'family_meal_records'
-     RETURNING 1
-  ) SELECT count(*) FROM changed),
+  (SELECT count(*) FROM changed),
   1::bigint,
   'admin can directly update a class override through RLS'
 );
 INSERT INTO public.class_capability_overrides (class_id, capability, enabled) VALUES
   ('00000000-0000-4000-8000-000000000303'::uuid, 'monitor_daily_summary', false);
+WITH removed AS (
+  DELETE FROM public.class_capability_overrides
+   WHERE class_id = '00000000-0000-4000-8000-000000000303'::uuid
+     AND capability = 'monitor_daily_summary'
+   RETURNING 1
+)
 SELECT is(
-  (WITH removed AS (
-    DELETE FROM public.class_capability_overrides
-     WHERE class_id = '00000000-0000-4000-8000-000000000303'::uuid
-       AND capability = 'monitor_daily_summary'
-     RETURNING 1
-  ) SELECT count(*) FROM removed),
+  (SELECT count(*) FROM removed),
   1::bigint,
   'admin can directly delete a class override through RLS'
 );
@@ -207,17 +211,20 @@ SELECT throws_ok(
   $$INSERT INTO public.capability_catalog (capability, default_enabled)
     VALUES ('temporary_catalog_test', true)$$,
   '42501',
+  NULL,
   'an authenticated admin cannot insert a migration-maintained catalog key'
 );
 SELECT throws_ok(
   $$UPDATE public.capability_catalog SET default_enabled = false
      WHERE capability = 'family_meal_records'$$,
   '42501',
+  NULL,
   'an authenticated admin cannot update global catalog defaults'
 );
 SELECT throws_ok(
   $$DELETE FROM public.capability_catalog WHERE capability = 'family_meal_records'$$,
   '42501',
+  NULL,
   'an authenticated admin cannot delete a migration-maintained catalog key'
 );
 
@@ -266,6 +273,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.set_school_supervisor_assignment('00000000-0000-4000-8000-000000000201'::uuid, '00000000-0000-4000-8000-000000000101'::uuid, true)$$,
   '22023',
+  NULL,
   'assignment management rejects users who are not supervisors'
 );
 
@@ -388,50 +396,58 @@ SELECT throws_ok(
   $$INSERT INTO public.school_capabilities (school_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000201'::uuid, 'monitor_daily_summary', true)$$,
   '42501',
+  NULL,
   'RLS rejects a parent direct write even within the linked school'
 );
 SELECT throws_ok(
   $$INSERT INTO public.school_supervisor_assignments (school_id, supervisor_id)
     VALUES ('00000000-0000-4000-8000-000000000201'::uuid, '00000000-0000-4000-8000-000000000103'::uuid)$$,
   '42501',
+  NULL,
   'RLS rejects a parent direct write to supervisor assignments'
 );
+WITH changed AS (
+  UPDATE public.school_capabilities SET enabled = true
+   WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
+   RETURNING 1
+)
 SELECT is(
-  (WITH changed AS (
-    UPDATE public.school_capabilities SET enabled = true
-     WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
-     RETURNING 1
-  ) SELECT count(*) FROM changed),
+  (SELECT count(*) FROM changed),
   0::bigint,
   'RLS prevents a parent update to another school without exposing the row'
 );
+WITH removed AS (
+  DELETE FROM public.school_capabilities
+   WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
+   RETURNING 1
+)
 SELECT is(
-  (WITH removed AS (
-    DELETE FROM public.school_capabilities
-     WHERE school_id = '00000000-0000-4000-8000-000000000202'::uuid
-     RETURNING 1
-  ) SELECT count(*) FROM removed),
+  (SELECT count(*) FROM removed),
   0::bigint,
   'RLS prevents a parent delete from another school without exposing the row'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_child_id => '00000000-0000-4000-8000-000000000403'::uuid)$$,
   '42501',
+  NULL,
   'a parent cannot read a child from another family or school'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000301'::uuid)$$,
   '42501',
+  NULL,
   'a parent cannot bypass child authorization by submitting a class id'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)$$,
   '42501',
+  NULL,
   'a parent cannot read management settings'
 );
 SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'family_meal_records', true)$$,
   '42501',
+  NULL,
   'a parent cannot write school capabilities'
 );
 
@@ -472,22 +488,26 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000303'::uuid)$$,
   '42501',
+  NULL,
   'a monitor cannot read a class in another school'
 );
 SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'family_meal_records', true)$$,
   '42501',
+  NULL,
   'a monitor cannot write school capabilities'
 );
 SELECT throws_ok(
   $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000303'::uuid, 'family_meal_records', true)$$,
   '42501',
+  NULL,
   'a monitor cannot write class overrides'
 );
 SELECT throws_ok(
   $$INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records', false)$$,
   '42501',
+  NULL,
   'RLS rejects a monitor direct write even within its assigned school'
 );
 
@@ -516,22 +536,26 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000302'::uuid)$$,
   '42501',
+  NULL,
   'a worker cannot read a sibling class without an assignment'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000303'::uuid)$$,
   '42501',
+  NULL,
   'a worker cannot read a class from another school'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)$$,
   '42501',
+  NULL,
   'a worker cannot read administrative settings'
 );
 SELECT throws_ok(
   $$INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records', false)$$,
   '42501',
+  NULL,
   'RLS rejects a worker write even within its assigned class'
 );
 
@@ -580,6 +604,7 @@ SELECT throws_ok(
   $$INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000302'::uuid, 'monitor_daily_summary', true)$$,
   '42501',
+  NULL,
   'RLS rejects a family write even to a linked class override'
 );
 
@@ -660,6 +685,7 @@ SELECT set_config('request.jwt.claims', json_build_object(
 SELECT throws_ok(
   $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)$$,
   '42501',
+  NULL,
   'an unassigned supervisor cannot read School A settings'
 );
 SELECT is(
@@ -676,36 +702,43 @@ SELECT throws_ok(
   $$INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records', true)$$,
   '42501',
+  NULL,
   'RLS rejects an unassigned supervisor direct write'
 );
 SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'family_meal_records', false)$$,
   '42501',
+  NULL,
   'an unassigned supervisor cannot write School A settings'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000301'::uuid)$$,
   '42501',
+  NULL,
   'an unassigned supervisor cannot read effective class settings'
 );
 SELECT throws_ok(
   $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records', true)$$,
   '42501',
+  NULL,
   'an unassigned supervisor cannot set a class override'
 );
 SELECT throws_ok(
   $$SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'family_meal_records')$$,
   '42501',
+  NULL,
   'an unassigned supervisor cannot reset a class override'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_school_supervisor_assignments('00000000-0000-4000-8000-000000000201'::uuid)$$,
   '42501',
+  NULL,
   'a supervisor cannot list school assignments'
 );
 SELECT throws_ok(
   $$SELECT public.set_school_supervisor_assignment('00000000-0000-4000-8000-000000000201'::uuid, '00000000-0000-4000-8000-000000000103'::uuid, true)$$,
   '42501',
+  NULL,
   'a supervisor cannot assign themselves to a school'
 );
 
@@ -720,6 +753,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000202'::uuid)$$,
   '42501',
+  NULL,
   'an assigned supervisor cannot read School B settings'
 );
 SELECT is(
@@ -748,6 +782,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_class_id => '00000000-0000-4000-8000-000000000303'::uuid)$$,
   '42501',
+  NULL,
   'an assigned supervisor cannot read effective settings for a class in School B'
 );
 SELECT is(
@@ -770,13 +805,14 @@ SELECT is(
   0::bigint,
   'an assigned supervisor cannot select an unassigned school record'
 );
+WITH changed AS (
+  UPDATE public.school_capabilities SET enabled = false
+   WHERE school_id = '00000000-0000-4000-8000-000000000201'::uuid
+     AND capability = 'monitor_daily_summary'
+   RETURNING 1
+)
 SELECT is(
-  (WITH changed AS (
-    UPDATE public.school_capabilities SET enabled = false
-     WHERE school_id = '00000000-0000-4000-8000-000000000201'::uuid
-       AND capability = 'monitor_daily_summary'
-     RETURNING 1
-  ) SELECT count(*) FROM changed),
+  (SELECT count(*) FROM changed),
   1::bigint,
   'an assigned supervisor can directly update its school value through RLS'
 );
@@ -784,6 +820,7 @@ SELECT throws_ok(
   $$INSERT INTO public.school_capabilities (school_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000202'::uuid, 'monitor_daily_summary', true)$$,
   '42501',
+  NULL,
   'RLS rejects a direct school write outside the supervisor assignment'
 );
 SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'monitor_daily_summary', false);
@@ -796,6 +833,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000202'::uuid, 'monitor_daily_summary', true)$$,
   '42501',
+  NULL,
   'an assigned supervisor cannot change a school-level setting in School B'
 );
 INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
@@ -804,6 +842,7 @@ SELECT throws_ok(
   $$INSERT INTO public.class_capability_overrides (class_id, capability, enabled)
     VALUES ('00000000-0000-4000-8000-000000000303'::uuid, 'monitor_daily_summary', true)$$,
   '42501',
+  NULL,
   'RLS rejects a direct class write outside the supervisor assignment'
 );
 SELECT public.set_class_capability('00000000-0000-4000-8000-000000000302'::uuid, 'family_meal_records', true);
@@ -816,6 +855,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000303'::uuid, 'family_meal_records', true)$$,
   '42501',
+  NULL,
   'an assigned supervisor cannot set a class override in School B'
 );
 SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000302'::uuid, 'family_meal_records');
@@ -828,6 +868,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000303'::uuid, 'family_meal_records')$$,
   '42501',
+  NULL,
   'an assigned supervisor cannot reset a class override in School B'
 );
 
@@ -851,6 +892,7 @@ SELECT set_config('request.jwt.claims', json_build_object(
 SELECT throws_ok(
   $$SELECT * FROM public.get_capability_settings('00000000-0000-4000-8000-000000000201'::uuid)$$,
   '42501',
+  NULL,
   'revoking the assignment immediately removes School A capability access'
 );
 
@@ -860,6 +902,7 @@ SELECT set_config('request.jwt.claims', json_build_object(
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities(p_child_id => '00000000-0000-4000-8000-000000000401'::uuid)$$,
   '42501',
+  NULL,
   'inactive users cannot read capability values'
 );
 
@@ -869,21 +912,25 @@ SELECT set_config('request.jwt.claims', json_build_object(
 SELECT throws_ok(
   $$SELECT public.set_school_capability('00000000-0000-4000-8000-000000000201'::uuid, 'unknown_capability', true)$$,
   '22023',
+  NULL,
   'the write contract rejects capability keys outside the fixed set'
 );
 SELECT throws_ok(
   $$SELECT public.set_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'unknown_capability', true)$$,
   '22023',
+  NULL,
   'setting a class rejects capability keys outside the fixed set'
 );
 SELECT throws_ok(
   $$SELECT public.reset_class_capability('00000000-0000-4000-8000-000000000301'::uuid, 'unknown_capability')$$,
   '22023',
+  NULL,
   'resetting a class rejects capability keys outside the fixed set'
 );
 SELECT throws_ok(
   $$SELECT * FROM public.get_effective_capabilities()$$,
   '22023',
+  NULL,
   'the effective read contract requires exactly one selected child or class'
 );
 

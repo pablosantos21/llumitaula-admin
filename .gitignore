@@ -23,3 +23,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Internal audit / session dumps
+supabase-security-advisor.md
+session-*.md

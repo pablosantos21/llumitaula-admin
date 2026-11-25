@@ -25,7 +25,6 @@ export const MonitorService = {
                 id,
                 first_name,
                 last_name,
-                code,
                 created_at,
                 monitors_schools!inner(school_id)
             `)
@@ -41,7 +40,6 @@ export const MonitorService = {
             id: m.id,
             first_name: m.first_name || '',
             last_name: m.last_name || '',
-            code: m.code != null ? String(m.code) : undefined,
             created_at: m.created_at,
         }));
     },
@@ -84,7 +82,7 @@ export const MonitorService = {
             .from('monitors')
             .update(cleanUpdates)
             .eq('id', id)
-            .select()
+            .select('id, first_name, last_name, created_at')
             .single();
 
         if (error) {
@@ -103,10 +101,9 @@ export const MonitorService = {
     },
 
     deleteMonitor: async (id: string): Promise<void> => {
-        const { error } = await supabase
-            .from('monitors')
-            .delete()
-            .eq('id', id);
+        const { error } = await supabase.rpc('delete_monitor', {
+            p_monitor_id: id,
+        });
 
         if (error) {
             console.error('Error deleting monitor:', error);

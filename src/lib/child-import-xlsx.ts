@@ -1,4 +1,4 @@
-import { read, utils } from 'xlsx';
+import { readXlsxFirstSheet } from './xlsx-codec.ts';
 import {
     MAX_IMPORT_ROWS,
     validateChildImportRows,
@@ -10,6 +10,8 @@ import {
     type ImportRowInput,
     type ImportValidationResult,
 } from './child-import.ts';
+
+export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 
 export type ImportBytes = ArrayBuffer | Uint8Array;
 
@@ -31,6 +33,9 @@ const EMPTY_FILE_MOTIVO =
 
 const UNREADABLE_FILE_MOTIVO =
     'No se pudo leer el fichero .xlsx: comprueba que sea un Excel válido con los datos en la primera hoja y la primera fila como cabecera.';
+
+const FILE_TOO_LARGE_MOTIVO =
+    'El fichero supera el tamaño máximo permitido (5 MB): reduce o divide el fichero e inténtalo de nuevo.';
 
 function isEffectivelyEmptyHeader(headers: readonly unknown[]): boolean {
     return headers.every((cell) => cell === null || cell === undefined || String(cell).trim() === '');
@@ -114,45 +119,23 @@ export function dryRunImportTable(
     return { ok: true, result };
 }
 
-/**
- * Extrae la primera hoja de un libro ya leído como matriz de valores.
- * Se incluye `blankrows: true` a propósito: las filas vacías deben conservar
- * su posición para que el nº_fila_excel siga siendo el real de la hoja.
- */
-export function tableFromWorkbook(workbook: unknown): unknown[][] | null {
-    if (typeof workbook !== 'object' || workbook === null) return null;
-    const sheets = (workbook as { SheetNames?: unknown; Sheets?: unknown }).SheetNames;
-    const book = workbook as { Sheets?: Record<string, unknown> };
-    if (!Array.isArray(sheets) || sheets.length === 0 || !book.Sheets) return null;
-    const firstName = sheets[0];
-    if (typeof firstName !== 'string') return null;
-    const sheet = book.Sheets[firstName];
-    if (sheet === null || sheet === undefined) return null;
-    try {
-        return utils.sheet_to_json<unknown[]>(sheet, {
-            header: 1,
-            defval: null,
-            blankrows: true,
-        }) as unknown[][];
-    } catch {
-        return null;
-    }
-}
-
 export function tableFromBytes(bytes: ImportBytes): unknown[][] | null {
-    try {
-        const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-        const workbook = read(data, { type: 'array' });
-        return tableFromWorkbook(workbook);
-    } catch {
+    const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    if (data.byteLength > MAX_IMPORT_FILE_BYTES) {
         return null;
     }
+    const parsed = readXlsxFirstSheet(data);
+    return parsed ? parsed.rows : null;
 }
 
 /**
  * Parsea los bytes de un .xlsx canónico (primera hoja, primera fila = cabecera).
  */
 export function parseImportWorkbookBytes(bytes: ImportBytes): ImportTableParseResult {
+    const byteLength = bytes instanceof Uint8Array ? bytes.byteLength : bytes.byteLength;
+    if (byteLength > MAX_IMPORT_FILE_BYTES) {
+        return { ok: false, motivo: FILE_TOO_LARGE_MOTIVO, missing: [] };
+    }
     const table = tableFromBytes(bytes);
     if (table === null) {
         return { ok: false, motivo: UNREADABLE_FILE_MOTIVO, missing: [] };
@@ -179,6 +162,9 @@ export function dryRunImportWorkbookBytes(bytes: ImportBytes, catalogs: ImportCa
  * Ayuda para la UI: lee un File del input y ejecuta el dry-run sin escribir.
  */
 export async function dryRunImportFile(file: File, catalogs: ImportCatalogs): Promise<DryRunTableResult> {
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+        return { ok: false, motivo: FILE_TOO_LARGE_MOTIVO, missing: [] };
+    }
     const buffer = await file.arrayBuffer();
     return dryRunImportWorkbookBytes(buffer, catalogs);
 }
